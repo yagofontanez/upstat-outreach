@@ -1,0 +1,64 @@
+<%- include('_header', { title: 'dashboard · upstat outreach' }) %>
+
+<section class="hero">
+  <div>
+    <span class="eyebrow">01 ▸ queue status</span>
+    <div class="stat-big <%= stats.approved === 0 ? 'empty' : '' %>">
+      <%= stats.approved %><span class="unit">approved</span>
+    </div>
+  </div>
+  <p class="stat-context">
+    <% if (stats.approved > 0) { %>
+      <span class="serif">awaiting dispatch.</span><br>
+      <span class="mono" style="font-size:11px;letter-spacing:0.18em;color:var(--text-faint);text-transform:uppercase;">→ open send to fire</span>
+    <% } else if (stats.pending > 0) { %>
+      <span class="serif">pending review.</span><br>
+      <span class="mono" style="font-size:11px;letter-spacing:0.18em;color:var(--text-faint);text-transform:uppercase;">→ open review to triage</span>
+    <% } else { %>
+      <span class="serif">queue empty.</span><br>
+      <span class="mono" style="font-size:11px;letter-spacing:0.18em;color:var(--text-faint);text-transform:uppercase;">→ run a scrape</span>
+    <% } %>
+  </p>
+</section>
+
+<div class="mini-stats">
+  <div class="item"><span class="k">Total</span><span class="v"><%= stats.total %></span></div>
+  <div class="item"><span class="k">Pending</span><span class="v dim"><%= stats.pending %></span></div>
+  <div class="item"><span class="k">Sent</span><span class="v"><%= stats.sent %></span></div>
+  <div class="item"><span class="k">Dropped</span><span class="v dim"><%= stats.rejected %></span></div>
+</div>
+
+<section class="section">
+  <div class="section-head">
+    <span class="num">02 ▸ actions</span>
+    <h2>where to go next</h2>
+  </div>
+
+  <div class="action-list">
+    <a class="row bare" href="/scrape">
+      <span class="num">01</span>
+      <div class="body">
+        <h3>collect new leads</h3>
+        <p>scrape google maps by term + city, extract names, sites, emails.</p>
+      </div>
+      <span class="arrow">→</span>
+    </a>
+    <a class="row bare" href="/review">
+      <span class="num">02</span>
+      <div class="body">
+        <h3>review pending</h3>
+        <p>approve, drop, or edit emails. bulk actions and keyboard nav.</p>
+      </div>
+      <span class="arrow">→</span>
+    </a>
+    <a class="row bare" href="/send">
+      <span class="num">03</span>
+      <div class="body">
+        <h3>dispatch emails</h3>
+        <p>fire approved leads via resend. test mode + batch limit.</p>
+      </div>
+      <span class="arrow">→</span>
+    </a>
+  </div>
+</section>
+<%- include('_footer') %>

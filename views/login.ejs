@@ -1,0 +1,17 @@
+<%- include('_header', { title: 'login · upstat outreach', showNav: false }) %>
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="brand-mark">upstat</div>
+    <div class="tagline">outreach · terminal v1.0</div>
+
+    <div class="prompt">enter access password</div>
+    <form method="post" action="/login" autocomplete="off">
+      <input type="password" name="password" placeholder="••••••••" autofocus required>
+      <button type="submit" class="btn btn-primary">unlock</button>
+      <% if (error) { %><p class="err" style="grid-column: 1 / -1;"><%= error %></p><% } %>
+    </form>
+
+    <p class="footer-note">// single-user instance. password set via <span class="mono">UI_PASSWORD</span> env var.</p>
+  </div>
+</div>
+<%- include('_footer') %>

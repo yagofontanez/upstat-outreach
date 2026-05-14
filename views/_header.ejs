@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title><%= typeof title !== 'undefined' ? title : 'upstat / outreach' %></title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <% const _active = (typeof active !== 'undefined') ? active : ''; %>
+  <% if (typeof showNav === 'undefined' || showNav) { %>
+  <header class="topbar">
+    <a class="brand bare" href="/">upstat</a>
+    <nav>
+      <a href="/scrape" class="<%= _active === 'scrape' ? 'active' : '' %>">Scrape</a>
+      <a href="/review" class="<%= _active === 'review' ? 'active' : '' %>">Review</a>
+      <a href="/send"   class="<%= _active === 'send'   ? 'active' : '' %>">Send</a>
+    </nav>
+    <form action="/logout" method="post" class="logout">
+      <button type="submit">⏻ exit</button>
+    </form>
+  </header>
+  <% } %>
+  <main>

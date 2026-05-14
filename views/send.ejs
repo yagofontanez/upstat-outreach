@@ -1,0 +1,50 @@
+<%- include('_header', { title: 'send · upstat outreach', active: 'send' }) %>
+
+<header class="page-head">
+  <span class="eyebrow">03 ▸ dispatch</span>
+  <h1>fire the queue.</h1>
+  <p>6 second delay between sends to keep deliverability healthy. test mode renders the email against a real lead name but never touches <span class="mono">leads.json</span>.</p>
+</header>
+
+<div class="queue-counter">
+  <span class="n"><%= approvedCount %></span>
+  <span class="label">approved · awaiting dispatch</span>
+  <% if (approvedCount > 0) { %><span class="pulse-dot" title="ready"></span><% } %>
+</div>
+
+<div class="dispatch-grid">
+  <form id="test-form" class="dispatch-card">
+    <div class="head">
+      <h3>test render</h3>
+      <p class="sub">send one email to yourself. uses an approved lead's name as sample. no state mutation.</p>
+    </div>
+    <div class="field">
+      <label>recipient</label>
+      <input name="testEmail" type="email" placeholder="you@example.com" required>
+    </div>
+    <button type="submit" class="btn">send test</button>
+  </form>
+
+  <form id="send-form" class="dispatch-card primary">
+    <div class="head">
+      <h3>dispatch live</h3>
+      <p class="sub">fires for real. leave limit empty to send the whole queue.</p>
+    </div>
+    <div class="field">
+      <label>batch limit</label>
+      <input name="limit" type="number" min="1" placeholder="10  (empty = all)">
+    </div>
+    <button type="submit" class="btn btn-primary">dispatch</button>
+  </form>
+</div>
+
+<div id="progress" class="terminal hidden" style="margin-top: var(--s-6);">
+  <div class="terminal-head">
+    <span class="dot live"></span>
+    <span>dispatch · live</span>
+    <span style="margin-left:auto;" id="send-meta"></span>
+  </div>
+  <div class="terminal-body" id="send-log"></div>
+  <div id="send-summary" class="summary" style="padding: 0 var(--s-4) var(--s-4);"></div>
+</div>
+<%- include('_footer') %>
