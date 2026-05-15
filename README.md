@@ -17,6 +17,7 @@ cp .env.example .env
 - `RESEND_API_KEY` — chave da [resend.com](https://resend.com)
 - `FROM_EMAIL` — remetente. O domínio precisa estar **verificado** no Resend (SPF/DKIM)
 - `REPLY_TO` — opcional. Email pra onde as respostas devem ir
+- `GROQ_API_KEY` — chave da [groq.com](https://console.groq.com) (free tier ok). Usado pra gerar abertura + subject personalizados via `llama-3.3-70b-versatile`
 - `UI_PASSWORD` — senha pra entrar na interface web (`npm run web`)
 - `SESSION_SECRET` — string aleatória pra assinar cookies da UI
 - `PORT` — porta da UI (default `3000`)
@@ -28,14 +29,17 @@ npm run web
 # abre http://localhost:3000 — login com a senha de UI_PASSWORD
 ```
 
-A interface tem quatro telas:
+A interface tem cinco telas:
 
 - **Dashboard** — contadores (pendentes/aprovados/enviados/descartados) e atalhos.
 - **Scrape** — formulário com termo + cidade + máximo; log ao vivo via SSE conforme
   o Chromium roda.
+- **Personalize** — usa Groq (`llama-3.3-70b-versatile`) pra ler o site de cada lead
+  pendente e gerar um subject + uma frase de abertura específica pro nicho. Botão de
+  `regenerate everything` quando ajustar o prompt.
 - **Review** — tabela com todos os pendentes, checkbox de seleção, edição inline do
-  email, ações por linha (`✓`/`✕`) e ações em lote (aprovar todos com email, descartar
-  todos sem email, etc).
+  email **e dos campos personalizados (subject + hook)**, ações por linha (`✓`/`✕`)
+  e ações em lote.
 - **Send** — mostra a contagem de aprovados na fila, formulário separado pra teste
   (1 email pro endereço informado) e pra disparo real (com `limit` opcional). Log
   ao vivo do envio.
@@ -77,6 +81,22 @@ node index.js reenrich --force  # re-tenta todos, sobrescreve emails existentes
 
 Útil depois de mexer em `lib/emails.js` (regex, ofuscações, paths). Não refaz o scrape do
 Maps — só visita os sites de novo.
+
+### `personalize` — gera abertura + subject por lead via Groq
+
+```bash
+node index.js personalize           # só os leads sem personalização ainda
+node index.js personalize --force   # regenera tudo (após ajustar o prompt)
+```
+
+Pra cada lead pendente com site, baixa a home, extrai sinais (title, meta description,
+h1, primeiros parágrafos) e manda pro `llama-3.3-70b-versatile` no Groq. O modelo
+devolve um JSON com `subject` (≤55 chars, sem palavras de spam) e `hook` (1 frase
+de abertura referenciando o que a empresa faz). Salvo em `leads.json` como
+`personalizedSubject` e `personalizedHook`. Custo: 0 (free tier do Groq, ~14k
+requests/dia).
+
+Prompt em `lib/personalize.js` (`SYSTEM`). Ajuste lá se quiser tom diferente.
 
 ### `review` — revisão interativa
 
@@ -125,7 +145,10 @@ node index.js scrape "agência de marketing" "São Paulo" 40
 node index.js scrape "agência de marketing" "Rio de Janeiro" 40
 node index.js scrape "estúdio de design" "Curitiba" 30
 
-# revise tudo de uma vez
+# gere abertura + subject únicos pra cada lead (essencial pra não cair em spam)
+node index.js personalize
+
+# revise tudo de uma vez (edite o subject/hook se a IA escreveu algo estranho)
 node index.js review
 
 # dispare
@@ -154,6 +177,9 @@ node index.js send
     "email": "contato@exemplo.com.br",
     "searchedAs": "agência de marketing / São Paulo",
     "status": "pending",
+    "personalizedSubject": "monitoramento pros sites dos seus clientes",
+    "personalizedHook": "vi que vocês trabalham com criação de sites pra restaurantes e cafés…",
+    "personalizedAt": "2026-05-14T13:42:11.000Z",
     "sentAt": null,
     "resendId": null
   }

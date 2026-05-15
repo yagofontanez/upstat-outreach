@@ -3,6 +3,7 @@ import { scrape } from "./lib/scraper.js";
 import { enrichEmails } from "./lib/emails.js";
 import { review } from "./lib/review.js";
 import { send } from "./lib/sender.js";
+import { personalizeLeads } from "./lib/personalize.js";
 import { load, save } from "./lib/state.js";
 
 const [cmd, ...args] = process.argv.slice(2);
@@ -19,6 +20,10 @@ Uso:
 
   node index.js review
       Abre revisão interativa dos leads coletados.
+
+  node index.js personalize [--force]
+      Gera abertura + subject personalizados via Groq (llama-3.3-70b)
+      pra cada lead pendente com site. Com --force, regenera tudo.
 
   node index.js send [--limit N] [--email <addr>]
       Envia via Resend para os leads aprovados ainda não enviados.
@@ -75,6 +80,22 @@ try {
     }
   } else if (cmd === "review") {
     await review();
+  } else if (cmd === "personalize") {
+    const force = args.includes("--force");
+    const leads = load();
+    const targets = leads.filter(
+      (l) =>
+        l.status === "pending" &&
+        l.website &&
+        (force || !(l.personalizedHook && l.personalizedSubject)),
+    );
+    if (targets.length === 0) {
+      console.log("Nada pra personalizar.");
+    } else {
+      await personalizeLeads(targets, { force });
+      save(leads);
+      console.log("Atualizado leads.json.");
+    }
   } else if (cmd === "send") {
     const opts = {};
     const limitIdx = args.indexOf("--limit");

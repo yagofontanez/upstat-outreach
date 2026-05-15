@@ -965,3 +965,47 @@ input[type=checkbox]:checked::after {
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+/* ──────── personalized fields in review ──────── */
+.leads-table tbody tr.pers-row td {
+  padding: 0 12px 14px;
+  border-bottom: 1px solid var(--border);
+  border-top: 0;
+  background: var(--surface);
+}
+.leads-table tbody tr.pers-row:hover { background: var(--surface); }
+.pers-fields {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 6px 12px;
+  align-items: start;
+}
+.pers-label {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--text-faint);
+  padding-top: 8px;
+}
+.pers-subject, .pers-hook {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  width: 100%;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 7px 9px;
+  resize: vertical;
+}
+.pers-subject:focus, .pers-hook:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.pers-status.ok { color: var(--success); }
+.pers-status.missing { color: var(--warn); }
+.leads-table tbody tr.removed + tr.pers-row {
+  opacity: 0;
+  transform: translateX(20px);
+}

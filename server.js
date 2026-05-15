@@ -7,6 +7,7 @@ import { dirname, join } from "node:path";
 import { scrape } from "./lib/scraper.js";
 import { enrichEmails } from "./lib/emails.js";
 import { send } from "./lib/sender.js";
+import { personalizeLeads } from "./lib/personalize.js";
 import { load, save } from "./lib/state.js";
 import { runJob, getJob, subscribe } from "./lib/jobs.js";
 import { requireAuth, checkPassword } from "./lib/auth.js";
@@ -65,6 +66,12 @@ app.get("/", (req, res) => {
     approved: leads.filter((l) => l.status === "approved" && !l.sentAt).length,
     rejected: leads.filter((l) => l.status === "rejected").length,
     sent: leads.filter((l) => l.status === "sent").length,
+    personalizable: leads.filter(
+      (l) =>
+        l.status === "pending" &&
+        l.website &&
+        !(l.personalizedHook && l.personalizedSubject),
+    ).length,
   };
   res.render("dashboard", { stats });
 });
@@ -121,12 +128,16 @@ app.get("/review", (req, res) => {
 
 app.post("/api/leads/:key", (req, res) => {
   const { key } = req.params;
-  const { status, email } = req.body;
+  const { status, email, personalizedSubject, personalizedHook } = req.body;
   const leads = load();
   const lead = leads.find((l) => (l.website || l.name) === key);
   if (!lead) return res.status(404).json({ error: "not found" });
   if (status) lead.status = status;
   if (typeof email === "string") lead.email = email.trim().toLowerCase();
+  if (typeof personalizedSubject === "string")
+    lead.personalizedSubject = personalizedSubject.trim();
+  if (typeof personalizedHook === "string")
+    lead.personalizedHook = personalizedHook.trim();
   save(leads);
   res.json({ ok: true, lead });
 });
@@ -146,6 +157,36 @@ app.post("/api/leads/bulk", (req, res) => {
   }
   save(leads);
   res.json({ ok: true, count });
+});
+
+app.get("/personalize", (req, res) => {
+  const leads = load();
+  const pendingCount = leads.filter(
+    (l) =>
+      l.status === "pending" &&
+      l.website &&
+      !(l.personalizedHook && l.personalizedSubject),
+  ).length;
+  const doneCount = leads.filter(
+    (l) => l.personalizedHook && l.personalizedSubject,
+  ).length;
+  res.render("personalize", { pendingCount, doneCount });
+});
+
+app.post("/api/personalize", (req, res) => {
+  const force = !!req.body.force;
+  const job = runJob(async (onProgress) => {
+    const leads = load();
+    const targets = leads.filter(
+      (l) =>
+        l.status === "pending" &&
+        l.website &&
+        (force || !(l.personalizedHook && l.personalizedSubject)),
+    );
+    await personalizeLeads(targets, { force, onProgress });
+    save(leads);
+  });
+  res.json({ jobId: job.id });
 });
 
 app.get("/send", (req, res) => {

@@ -1,0 +1,38 @@
+<%- include('_header', { title: 'personalize · upstat outreach', active: 'personalize' }) %>
+
+<header class="page-head">
+  <span class="eyebrow">02b ▸ personalize</span>
+  <h1>tailor each opener.</h1>
+  <p>uses groq <span class="mono">llama-3.3-70b</span> to read each company's site and generate a custom subject + opening line. cuts spam scores hard — identical body copy is the #1 cold-email red flag.</p>
+</header>
+
+<div class="split">
+  <form id="personalize-form" class="panel">
+    <div class="panel-head">▸ parameters</div>
+    <div class="form-grid">
+      <div class="field">
+        <label>queue</label>
+        <div class="mono" style="font-size:13px;line-height:1.6;">
+          <div><span style="color:var(--text-dim);">pending:</span> <strong><%= pendingCount %></strong></div>
+          <div><span style="color:var(--text-dim);">already done:</span> <%= doneCount %></div>
+        </div>
+      </div>
+      <div class="field">
+        <label><input type="checkbox" name="force" id="force"> regenerate everything</label>
+        <span class="hint">overwrites existing personalized fields (useful after tweaking the prompt).</span>
+      </div>
+      <button type="submit" class="btn btn-primary" style="margin-top: 4px; justify-content: center;">run personalize</button>
+    </div>
+  </form>
+
+  <div id="progress" class="terminal hidden">
+    <div class="terminal-head">
+      <span class="dot live"></span>
+      <span>personalize · live</span>
+      <span style="margin-left:auto;" id="personalize-meta"></span>
+    </div>
+    <div class="terminal-body" id="personalize-log"></div>
+    <div id="personalize-summary" class="summary" style="padding: 0 var(--s-4) var(--s-4);"></div>
+  </div>
+</div>
+<%- include('_footer') %>

@@ -39,12 +39,15 @@
       </tr>
     </thead>
     <tbody>
-      <% leads.forEach(lead => { const key = lead.website || lead.name; %>
+      <% leads.forEach(lead => { const key = lead.website || lead.name; const hasPers = lead.personalizedHook && lead.personalizedSubject; %>
         <tr data-key="<%= key %>">
           <td><input type="checkbox" class="row-check"></td>
           <td>
             <div class="name"><%= lead.name %></div>
             <% if (lead.phone) { %><div class="meta"><%= lead.phone %></div><% } %>
+            <div class="meta pers-status <%= hasPers ? 'ok' : 'missing' %>">
+              <%= hasPers ? '✓ personalized' : '○ not personalized' %>
+            </div>
           </td>
           <td>
             <input class="email-input" type="email" value="<%= lead.email || '' %>" placeholder="(empty)">
@@ -61,6 +64,17 @@
             <div class="row-actions">
               <button type="button" data-action="approve" title="approve (Y)">Y</button>
               <button type="button" data-action="reject" title="drop (N)">N</button>
+            </div>
+          </td>
+        </tr>
+        <tr class="pers-row" data-key="<%= key %>">
+          <td></td>
+          <td colspan="5">
+            <div class="pers-fields">
+              <label class="pers-label">subject</label>
+              <input class="pers-subject" type="text" maxlength="100" value="<%= lead.personalizedSubject || '' %>" placeholder="(no personalized subject — falls back to default)">
+              <label class="pers-label">hook</label>
+              <textarea class="pers-hook" rows="2" maxlength="300" placeholder="(no personalized opening — falls back to default)"><%= lead.personalizedHook || '' %></textarea>
             </div>
           </td>
         </tr>

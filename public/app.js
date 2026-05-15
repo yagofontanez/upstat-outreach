@@ -106,6 +106,42 @@
     });
   }
 
+  if (path === "/personalize") {
+    const form = document.getElementById("personalize-form");
+    const progress = document.getElementById("progress");
+    const logEl = document.getElementById("personalize-log");
+    const summaryEl = document.getElementById("personalize-summary");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const force = document.getElementById("force").checked;
+      progress.classList.remove("hidden");
+      logEl.textContent = "";
+      summaryEl.textContent = "";
+      const submitBtn = form.querySelector("button[type=submit]");
+      submitBtn.disabled = true;
+      submitBtn.textContent = "running…";
+      try {
+        const res = await fetch("/api/personalize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ force }),
+        });
+        if (!res.ok) {
+          alert("falha ao iniciar");
+          return;
+        }
+        const { jobId } = await res.json();
+        streamJob(jobId, logEl, summaryEl, progress);
+      } finally {
+        setTimeout(() => {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "run personalize";
+        }, 2000);
+      }
+    });
+  }
+
   if (path === "/send") {
     const progress = document.getElementById("progress");
     const logEl = document.getElementById("send-log");
@@ -183,7 +219,9 @@
     }
 
     function getRows() {
-      return [...tbody.querySelectorAll("tr")];
+      return [...tbody.querySelectorAll("tr")].filter(
+        (r) => !r.classList.contains("pers-row"),
+      );
     }
     function getCheckedRows() {
       return getRows().filter((r) => r.querySelector(".row-check")?.checked);
@@ -192,9 +230,19 @@
       return getRows().filter((r) => !r.classList.contains("removed"));
     }
 
+    function persRowFor(row) {
+      const next = row.nextElementSibling;
+      return next?.classList.contains("pers-row") ? next : null;
+    }
+
     function removeRowVisual(row) {
+      const pers = persRowFor(row);
       row.classList.add("removed");
-      setTimeout(() => row.remove(), 280);
+      if (pers) pers.classList.add("removed");
+      setTimeout(() => {
+        row.remove();
+        if (pers) pers.remove();
+      }, 280);
     }
 
     let focusIdx = 0;
@@ -251,6 +299,16 @@
       const row = inp.closest("tr");
       await updateLead(row.dataset.key, { email: inp.value });
     });
+
+    tbody.addEventListener("blur", async (e) => {
+      const subj = e.target.closest(".pers-subject");
+      const hook = e.target.closest(".pers-hook");
+      if (!subj && !hook) return;
+      const row = e.target.closest("tr");
+      const key = row.dataset.key;
+      if (subj) await updateLead(key, { personalizedSubject: subj.value });
+      if (hook) await updateLead(key, { personalizedHook: hook.value });
+    }, true);
 
     document.getElementById("check-all")?.addEventListener("change", (e) => {
       getActiveRows().forEach((r) => {
