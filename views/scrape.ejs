@@ -3,27 +3,53 @@
 <header class="page-head">
   <span class="eyebrow">01 ▸ collect</span>
   <h1>scrape the map.</h1>
-  <p>opens chromium (visible) and walks the result list. takes a few minutes per batch. results merge into <span class="mono">leads.json</span> by website — duplicates dedupe automatically.</p>
+  <p>opens chromium (visible) and walks the result list. takes a few minutes per batch. results merge into <span class="mono">outreach.sqlite</span> by website — duplicates dedupe automatically.</p>
 </header>
 
 <div class="split">
-  <form id="scrape-form" class="panel">
-    <div class="panel-head">▸ parameters</div>
-    <div class="form-grid">
-      <div class="field">
-        <label>search term</label>
-        <input name="term" placeholder="agência de marketing" required>
+  <form id="scrape-form" class="panel scrape-panel">
+    <div class="panel-head">
+      <span>▸ parameters</span>
+      <span class="panel-tag">maps query</span>
+    </div>
+    <div class="form-grid scrape-form-grid">
+      <div class="field scrape-field">
+        <label for="scrape-term">search term</label>
+        <div class="input-shell">
+          <span class="input-prefix">term</span>
+          <input id="scrape-term" name="term" placeholder="agência de marketing" autocomplete="off" required>
+        </div>
+        <div class="quick-picks" aria-label="example search terms">
+          <button type="button" data-fill="term" data-value="agência de marketing">agência de marketing</button>
+          <button type="button" data-fill="term" data-value="estúdio de design">estúdio de design</button>
+          <button type="button" data-fill="term" data-value="desenvolvimento de sites">desenvolvimento de sites</button>
+        </div>
       </div>
-      <div class="field">
-        <label>city</label>
-        <input name="city" placeholder="Curitiba" required>
+      <div class="field scrape-field">
+        <label for="scrape-city">city</label>
+        <div class="input-shell">
+          <span class="input-prefix">geo</span>
+          <input id="scrape-city" name="city" placeholder="Curitiba" autocomplete="off" required>
+        </div>
+        <div class="quick-picks" aria-label="example cities">
+          <button type="button" data-fill="city" data-value="São Paulo">São Paulo</button>
+          <button type="button" data-fill="city" data-value="Curitiba">Curitiba</button>
+          <button type="button" data-fill="city" data-value="Belo Horizonte">Belo Horizonte</button>
+        </div>
       </div>
-      <div class="field">
-        <label>max results</label>
-        <input name="max" type="number" min="1" max="100" value="30">
-        <span class="hint">1–100. defaults to 30.</span>
+      <div class="field scrape-field">
+        <label for="scrape-max">max results</label>
+        <div class="input-shell compact">
+          <span class="input-prefix">limit</span>
+          <input id="scrape-max" name="max" type="number" min="1" max="100" value="30">
+        </div>
+        <span class="hint">1–100. lower batches are easier to review.</span>
       </div>
-      <button type="submit" class="btn btn-primary" style="margin-top: 4px; justify-content: center;">run scrape</button>
+      <div class="scrape-summary-card">
+        <span class="k">output</span>
+        <span>new leads are merged by website into <strong>outreach.sqlite</strong></span>
+      </div>
+      <button type="submit" class="btn btn-primary scrape-submit">run scrape</button>
     </div>
   </form>
 

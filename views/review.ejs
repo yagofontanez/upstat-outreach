@@ -1,5 +1,4 @@
 <%- include('_header', { title: 'review · upstat outreach', active: 'review' }) %>
-
 <header class="page-head">
   <span class="eyebrow">02 ▸ triage</span>
   <h1>review the queue.</h1>
@@ -39,7 +38,7 @@
       </tr>
     </thead>
     <tbody>
-      <% leads.forEach(lead => { const key = lead.website || lead.name; const hasPers = lead.personalizedHook && lead.personalizedSubject; %>
+      <% leads.forEach(lead => { const key = lead.website || lead.name; const hasPers = !!lead.personalizedHook; %>
         <tr data-key="<%= key %>">
           <td><input type="checkbox" class="row-check"></td>
           <td>
@@ -62,6 +61,7 @@
           <td><span class="meta" style="margin: 0;"><%= lead.searchedAs || '—' %></span></td>
           <td class="actions-col">
             <div class="row-actions">
+              <button type="button" data-action="preview" title="preview email">P</button>
               <button type="button" data-action="approve" title="approve (Y)">Y</button>
               <button type="button" data-action="reject" title="drop (N)">N</button>
             </div>
@@ -72,7 +72,7 @@
           <td colspan="5">
             <div class="pers-fields">
               <label class="pers-label">subject</label>
-              <input class="pers-subject" type="text" maxlength="100" value="<%= lead.personalizedSubject || '' %>" placeholder="(no personalized subject — falls back to default)">
+              <input class="pers-subject" type="text" value="<%= buildSubject(lead.name) %>" readonly title="subject used on send">
               <label class="pers-label">hook</label>
               <textarea class="pers-hook" rows="2" maxlength="300" placeholder="(no personalized opening — falls back to default)"><%= lead.personalizedHook || '' %></textarea>
             </div>
@@ -81,5 +81,28 @@
       <% }) %>
     </tbody>
   </table>
+
+  <div id="email-preview-modal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-modal-close></div>
+    <section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="email-preview-title">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">preview</span>
+          <h2 id="email-preview-title">email render</h2>
+        </div>
+        <button type="button" class="modal-close" data-modal-close title="close">×</button>
+      </div>
+      <div class="email-preview-meta">
+        <span class="k">subject</span>
+        <strong id="lead-preview-subject">—</strong>
+      </div>
+      <div class="email-preview-tabs">
+        <button type="button" class="active" data-lead-preview-tab="html">html</button>
+        <button type="button" data-lead-preview-tab="text">text</button>
+      </div>
+      <div id="lead-preview-html" class="email-preview-html"></div>
+      <pre id="lead-preview-text" class="email-preview-text hidden"></pre>
+    </section>
+  </div>
 <% } %>
 <%- include('_footer') %>

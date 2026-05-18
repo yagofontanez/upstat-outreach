@@ -47,7 +47,7 @@
       <span class="num">02</span>
       <div class="body">
         <h3>personalize via groq</h3>
-        <p>generate a custom subject + opening per lead. <%= stats.personalizable %> pending.</p>
+        <p>generate a custom opening per lead. <%= stats.personalizable %> pending.</p>
       </div>
       <span class="arrow">→</span>
     </a>
@@ -59,8 +59,16 @@
       </div>
       <span class="arrow">→</span>
     </a>
-    <a class="row bare" href="/send">
+    <a class="row bare" href="/template">
       <span class="num">04</span>
+      <div class="body">
+        <h3>edit template</h3>
+        <p>adjust subject and body with variables, then preview the final render.</p>
+      </div>
+      <span class="arrow">→</span>
+    </a>
+    <a class="row bare" href="/send">
+      <span class="num">05</span>
       <div class="body">
         <h3>dispatch emails</h3>
         <p>fire approved leads via resend. test mode + batch limit.</p>

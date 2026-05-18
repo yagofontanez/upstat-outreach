@@ -65,11 +65,40 @@
     };
   }
 
+  function setEmailPreview(prefix, email) {
+    document.getElementById(`${prefix}-subject`).textContent =
+      email.subject || "—";
+    document.getElementById(`${prefix}-html`).innerHTML = email.html || "";
+    document.getElementById(`${prefix}-text`).textContent = email.text || "";
+  }
+
+  function wirePreviewTabs(attr, htmlId, textId) {
+    document.querySelectorAll(`button[${attr}]`).forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const showText = btn.getAttribute(attr) === "text";
+        document
+          .querySelectorAll(`button[${attr}]`)
+          .forEach((b) => b.classList.toggle("active", b === btn));
+        document.getElementById(htmlId).classList.toggle("hidden", showText);
+        document.getElementById(textId).classList.toggle("hidden", !showText);
+      });
+    });
+  }
+
   if (path === "/scrape") {
     const form = document.getElementById("scrape-form");
     const progress = document.getElementById("progress");
     const logEl = document.getElementById("scrape-log");
     const summaryEl = document.getElementById("scrape-summary");
+
+    form.querySelectorAll("[data-fill]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const input = form.elements[btn.dataset.fill];
+        if (!input) return;
+        input.value = btn.dataset.value || "";
+        input.focus();
+      });
+    });
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -196,6 +225,69 @@
     });
   }
 
+  if (path === "/template") {
+    const form = document.getElementById("template-form");
+    const status = document.getElementById("template-status");
+    wirePreviewTabs(
+      "data-preview-tab",
+      "template-preview-html",
+      "template-preview-text",
+    );
+
+    async function previewTemplate() {
+      const fd = new FormData(form);
+      const res = await fetch("/api/template/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subject: fd.get("subject"),
+          body: fd.get("body"),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "preview failed");
+      setEmailPreview("template-preview", data.email);
+    }
+
+    document
+      .getElementById("template-preview-btn")
+      .addEventListener("click", async () => {
+        status.textContent = "";
+        try {
+          await previewTemplate();
+        } catch (err) {
+          status.textContent = err.message;
+          status.className = "form-status fail";
+        }
+      });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      status.textContent = "saving…";
+      status.className = "form-status";
+      const res = await fetch("/api/template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subject: fd.get("subject"),
+          body: fd.get("body"),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        status.textContent = data.error || "save failed";
+        status.className = "form-status fail";
+        return;
+      }
+      status.textContent = "saved";
+      status.className = "form-status ok";
+      await previewTemplate().catch(() => {});
+    });
+
+    previewTemplate().catch(() => {});
+  }
+
   if (path === "/review") {
     const tbody = document.querySelector(".leads-table tbody");
     if (!tbody) return;
@@ -262,13 +354,41 @@
 
     paintFocus();
 
+    const previewModal = document.getElementById("email-preview-modal");
+    wirePreviewTabs(
+      "data-lead-preview-tab",
+      "lead-preview-html",
+      "lead-preview-text",
+    );
+    document.querySelectorAll("[data-modal-close]").forEach((el) => {
+      el.addEventListener("click", () => {
+        previewModal.classList.add("hidden");
+        previewModal.setAttribute("aria-hidden", "true");
+      });
+    });
+
     tbody.addEventListener("click", async (e) => {
       const btn = e.target.closest("button[data-action]");
       if (!btn) return;
       const row = btn.closest("tr");
       const key = row.dataset.key;
       const action = btn.dataset.action;
-      if (action === "approve") {
+      if (action === "preview") {
+        const pers = persRowFor(row);
+        await updateLead(key, {
+          email: row.querySelector(".email-input").value,
+          personalizedHook: pers?.querySelector(".pers-hook")?.value || "",
+        });
+        const res = await fetch(`/api/leads/${encodeURIComponent(key)}/preview`);
+        if (!res.ok) {
+          alert("preview failed");
+          return;
+        }
+        const data = await res.json();
+        setEmailPreview("lead-preview", data.email);
+        previewModal.classList.remove("hidden");
+        previewModal.setAttribute("aria-hidden", "false");
+      } else if (action === "approve") {
         const email = row
           .querySelector(".email-input")
           .value.trim()
@@ -301,13 +421,11 @@
     });
 
     tbody.addEventListener("blur", async (e) => {
-      const subj = e.target.closest(".pers-subject");
       const hook = e.target.closest(".pers-hook");
-      if (!subj && !hook) return;
+      if (!hook) return;
       const row = e.target.closest("tr");
       const key = row.dataset.key;
-      if (subj) await updateLead(key, { personalizedSubject: subj.value });
-      if (hook) await updateLead(key, { personalizedHook: hook.value });
+      await updateLead(key, { personalizedHook: hook.value });
     }, true);
 
     document.getElementById("check-all")?.addEventListener("change", (e) => {

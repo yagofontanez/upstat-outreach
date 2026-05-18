@@ -10,6 +10,8 @@ node_modules/
 leads.json
 leads.backup.json
 leads.*.json
+outreach.sqlite
+outreach.sqlite-*
 
 # logs
 npm-debug.log*

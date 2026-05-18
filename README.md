@@ -1,7 +1,7 @@
 # UpStat Outreach
 
 Script de cold outreach pro UpStat: scrapa agências no Google Maps, busca email no site
-delas, deixa você revisar e dispara via Resend.
+delas, deixa você revisar, editar o template e dispara via Resend.
 
 ## Setup (uma vez)
 
@@ -12,12 +12,14 @@ cp .env.example .env
 # edite .env com sua RESEND_API_KEY
 ```
 
+Requer Node 24+ porque a persistência usa `node:sqlite`.
+
 `.env` precisa de:
 
 - `RESEND_API_KEY` — chave da [resend.com](https://resend.com)
 - `FROM_EMAIL` — remetente. O domínio precisa estar **verificado** no Resend (SPF/DKIM)
 - `REPLY_TO` — opcional. Email pra onde as respostas devem ir
-- `GROQ_API_KEY` — chave da [groq.com](https://console.groq.com) (free tier ok). Usado pra gerar abertura + subject personalizados via `llama-3.3-70b-versatile`
+- `GROQ_API_KEY` — chave da [groq.com](https://console.groq.com) (free tier ok). Usado pra gerar aberturas personalizadas via `llama-3.3-70b-versatile`
 - `UI_PASSWORD` — senha pra entrar na interface web (`npm run web`)
 - `SESSION_SECRET` — string aleatória pra assinar cookies da UI
 - `PORT` — porta da UI (default `3000`)
@@ -29,26 +31,30 @@ npm run web
 # abre http://localhost:3000 — login com a senha de UI_PASSWORD
 ```
 
-A interface tem cinco telas:
+A interface tem seis telas:
 
 - **Dashboard** — contadores (pendentes/aprovados/enviados/descartados) e atalhos.
 - **Scrape** — formulário com termo + cidade + máximo; log ao vivo via SSE conforme
   o Chromium roda.
 - **Personalize** — usa Groq (`llama-3.3-70b-versatile`) pra ler o site de cada lead
-  pendente e gerar um subject + uma frase de abertura específica pro nicho. Botão de
+  pendente e gerar uma frase de abertura específica pro nicho. Botão de
   `regenerate everything` quando ajustar o prompt.
 - **Review** — tabela com todos os pendentes, checkbox de seleção, edição inline do
-  email **e dos campos personalizados (subject + hook)**, ações por linha (`✓`/`✕`)
-  e ações em lote.
+  email **e da abertura personalizada**; preview do email final por lead. Ações por
+  linha (`P`/`Y`/`N`) e ações em lote.
+- **Template** — editor do subject e corpo do email com variáveis (`{{company}}`,
+  `{{opening}}`, `{{hook}}`, `{{url}}`, `{{replyTo}}`) e preview HTML/texto.
 - **Send** — mostra a contagem de aprovados na fila, formulário separado pra teste
   (1 email pro endereço informado) e pra disparo real (com `limit` opcional). Log
   ao vivo do envio.
 
-O CLI continua funcionando em paralelo — ambos compartilham o mesmo `leads.json`.
+O CLI continua funcionando em paralelo — ambos compartilham o mesmo `outreach.sqlite`.
+Se existir um `leads.json` legado, ele é importado automaticamente na primeira execução
+quando o banco ainda estiver vazio.
 
 ## Comandos CLI
 
-Todos os comandos guardam estado em `leads.json`, então você pode parar e voltar a qualquer
+Todos os comandos guardam estado em `outreach.sqlite`, então você pode parar e voltar a qualquer
 momento. Cada lead tem um `status`: `pending` → `approved`/`rejected` → `sent`.
 
 ### `scrape` — coleta leads do Maps
@@ -69,7 +75,7 @@ node index.js scrape "estúdio de design" "São Paulo" 40
 node index.js scrape "agência de viagens" "Belo Horizonte"
 ```
 
-Os leads novos são adicionados ao `leads.json` (dedup por website). Rodar `scrape` várias
+Os leads novos são adicionados ao banco SQLite (dedup por website). Rodar `scrape` várias
 vezes com termos/cidades diferentes só acumula.
 
 ### `reenrich` — re-tenta extração de email
@@ -82,7 +88,7 @@ node index.js reenrich --force  # re-tenta todos, sobrescreve emails existentes
 Útil depois de mexer em `lib/emails.js` (regex, ofuscações, paths). Não refaz o scrape do
 Maps — só visita os sites de novo.
 
-### `personalize` — gera abertura + subject por lead via Groq
+### `personalize` — gera abertura por lead via Groq
 
 ```bash
 node index.js personalize           # só os leads sem personalização ainda
@@ -91,9 +97,9 @@ node index.js personalize --force   # regenera tudo (após ajustar o prompt)
 
 Pra cada lead pendente com site, baixa a home, extrai sinais (title, meta description,
 h1, primeiros parágrafos) e manda pro `llama-3.3-70b-versatile` no Groq. O modelo
-devolve um JSON com `subject` (≤55 chars, sem palavras de spam) e `hook` (1 frase
-de abertura referenciando o que a empresa faz). Salvo em `leads.json` como
-`personalizedSubject` e `personalizedHook`. Custo: 0 (free tier do Groq, ~14k
+devolve um JSON com `hook` (1 frase de abertura referenciando o que a empresa faz).
+Salvo no banco como `personalizedHook`. O subject vem do template configurado na UI
+ou, por padrão, `monitoramento de uptime pra {Empresa}`. Custo: 0 (free tier do Groq, ~14k
 requests/dia).
 
 Prompt em `lib/personalize.js` (`SYSTEM`). Ajuste lá se quiser tom diferente.
@@ -113,7 +119,7 @@ Mostra um a um os leads pendentes. Comandos durante a revisão:
 | `e`   | editar/preencher email manualmente |
 | `s`   | sair (salva o progresso)           |
 
-Cada decisão é salva imediatamente em `leads.json` — se você sair no meio, da próxima vez
+Cada decisão é salva imediatamente no banco — se você sair no meio, da próxima vez
 ele continua de onde parou.
 
 ### `send` — dispara os aprovados
@@ -121,7 +127,7 @@ ele continua de onde parou.
 ```bash
 node index.js send                              # envia tudo aprovado
 node index.js send --limit 10                   # envia só os 10 primeiros da fila
-node index.js send --email teste@gmail.com      # envia 1 email de teste, não toca em leads.json
+node index.js send --email teste@gmail.com      # envia 1 email de teste, não altera leads
 ```
 
 Envia via Resend pros leads com `status: approved` que ainda não foram enviados. Delay de
@@ -145,10 +151,10 @@ node index.js scrape "agência de marketing" "São Paulo" 40
 node index.js scrape "agência de marketing" "Rio de Janeiro" 40
 node index.js scrape "estúdio de design" "Curitiba" 30
 
-# gere abertura + subject únicos pra cada lead (essencial pra não cair em spam)
+# gere aberturas únicas pra cada lead
 node index.js personalize
 
-# revise tudo de uma vez (edite o subject/hook se a IA escreveu algo estranho)
+# revise tudo de uma vez (edite o hook se a IA escreveu algo estranho)
 node index.js review
 
 # dispare
@@ -158,14 +164,16 @@ node index.js send
 ## Customizando
 
 - **Copy do email:** `lib/template.js`. Edita antes do primeiro envio — quanto mais
-  específico ao ICP da busca, melhor a resposta.
+  específico ao ICP da busca, melhor a resposta. Pela UI, use a tela **Template**.
 - **Paths visitados pra achar email:** `PATHS` em `lib/emails.js`.
 - **TLDs aceitos:** `PLAUSIBLE_TLDS` em `lib/emails.js`.
 - **Delay entre envios:** `DELAY_MS` em `lib/sender.js` (padrão 6000ms).
 - **Seletores do Maps:** `lib/scraper.js`. Se o Google mudar o DOM e quebrar, abre o Maps
   no DevTools e ajusta `a.hfpxzc`, `h1.DUwDvf`, `a[data-item-id="authority"]`.
 
-## Estrutura do `leads.json`
+## Estrutura dos leads
+
+Os leads ficam em `outreach.sqlite`. O formato lógico de cada lead continua sendo:
 
 ```json
 [
@@ -177,7 +185,6 @@ node index.js send
     "email": "contato@exemplo.com.br",
     "searchedAs": "agência de marketing / São Paulo",
     "status": "pending",
-    "personalizedSubject": "monitoramento pros sites dos seus clientes",
     "personalizedHook": "vi que vocês trabalham com criação de sites pra restaurantes e cafés…",
     "personalizedAt": "2026-05-14T13:42:11.000Z",
     "sentAt": null,
@@ -191,7 +198,7 @@ node index.js send
 - **Volume.** Comece com 20-30 envios/dia do mesmo domínio. Acima disso a reputação cai
   rápido em cold outreach e os emails começam a ir pro spam pra todo mundo.
 - **Suprimidos.** Quando alguém pedir pra sair ("remover", "unsubscribe"), marque manualmente
-  como `status: "rejected"` no `leads.json` e nunca mais inclua. LGPD exige isso.
+  como `status: "rejected"` no banco e nunca mais inclua. LGPD exige isso.
 - **Honestidade.** Se alguém perguntar como você conseguiu o email, diga a verdade: "achei
   no site público da sua empresa".
 - **Maps.** O scraping do Maps viola o ToS do Google. O risco prático é CAPTCHA/IP

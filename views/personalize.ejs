@@ -3,7 +3,7 @@
 <header class="page-head">
   <span class="eyebrow">02b ▸ personalize</span>
   <h1>tailor each opener.</h1>
-  <p>uses groq <span class="mono">llama-3.3-70b</span> to read each company's site and generate a custom subject + opening line. cuts spam scores hard — identical body copy is the #1 cold-email red flag.</p>
+  <p>uses groq <span class="mono">llama-3.3-70b</span> to read each company's site and generate a custom opening line. the email subject stays fixed with only the company name changing.</p>
 </header>
 
 <div class="split">
@@ -19,7 +19,7 @@
       </div>
       <div class="field">
         <label><input type="checkbox" name="force" id="force"> regenerate everything</label>
-        <span class="hint">overwrites existing personalized fields (useful after tweaking the prompt).</span>
+        <span class="hint">overwrites existing personalized openings (useful after tweaking the prompt).</span>
       </div>
       <button type="submit" class="btn btn-primary" style="margin-top: 4px; justify-content: center;">run personalize</button>
     </div>

@@ -1,0 +1,44 @@
+<%- include('_header', { title: 'template · upstat outreach', active: 'template' }) %>
+
+<header class="page-head">
+  <span class="eyebrow">03 ▸ template</span>
+  <h1>edit the email.</h1>
+  <p>use variables like <span class="mono">{{company}}</span>, <span class="mono">{{opening}}</span>, <span class="mono">{{hook}}</span>, <span class="mono">{{url}}</span>, and <span class="mono">{{replyTo}}</span>. preview does not send anything.</p>
+</header>
+
+<div class="template-grid">
+  <form id="template-form" class="panel template-editor">
+    <div class="panel-head">▸ active template</div>
+    <div class="form-grid">
+      <div class="field">
+        <label>subject</label>
+        <input name="subject" type="text" value="<%= template.subject %>" required>
+      </div>
+      <div class="field">
+        <label>body</label>
+        <textarea name="body" rows="18" required><%= template.body %></textarea>
+      </div>
+      <div class="template-actions">
+        <button type="button" class="btn btn-ghost" id="template-preview-btn">preview</button>
+        <button type="submit" class="btn btn-primary">save template</button>
+      </div>
+      <p id="template-status" class="form-status"></p>
+    </div>
+  </form>
+
+  <aside class="panel email-preview-panel">
+    <div class="panel-head">▸ preview</div>
+    <div class="email-preview-meta">
+      <span class="k">subject</span>
+      <strong id="template-preview-subject">—</strong>
+    </div>
+    <div class="email-preview-tabs">
+      <button type="button" class="active" data-preview-tab="html">html</button>
+      <button type="button" data-preview-tab="text">text</button>
+    </div>
+    <div id="template-preview-html" class="email-preview-html"></div>
+    <pre id="template-preview-text" class="email-preview-text hidden"></pre>
+  </aside>
+</div>
+
+<%- include('_footer') %>

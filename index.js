@@ -22,13 +22,13 @@ Uso:
       Abre revisão interativa dos leads coletados.
 
   node index.js personalize [--force]
-      Gera abertura + subject personalizados via Groq (llama-3.3-70b)
+      Gera abertura personalizada via Groq (llama-3.3-70b)
       pra cada lead pendente com site. Com --force, regenera tudo.
 
   node index.js send [--limit N] [--email <addr>]
       Envia via Resend para os leads aprovados ainda não enviados.
       --limit N         envia só os N primeiros da fila (ex: --limit 10)
-      --email <addr>    envia 1 email de TESTE pra esse endereço, sem mexer no leads.json
+      --email <addr>    envia 1 email de TESTE pra esse endereço, sem alterar leads
 `);
 }
 
@@ -58,7 +58,7 @@ try {
         });
     }
     save([...map.values()]);
-    console.log(`\nSalvo em leads.json. Total acumulado: ${map.size}`);
+    console.log(`\nSalvo em outreach.sqlite. Total acumulado: ${map.size}`);
   } else if (cmd === "reenrich") {
     const force = args.includes("--force");
     const leads = load();
@@ -76,7 +76,7 @@ try {
         if (byKey.has(k)) l.email = byKey.get(k) || l.email;
       }
       save(leads);
-      console.log("Atualizado leads.json.");
+      console.log("Atualizado outreach.sqlite.");
     }
   } else if (cmd === "review") {
     await review();
@@ -87,14 +87,14 @@ try {
       (l) =>
         l.status === "pending" &&
         l.website &&
-        (force || !(l.personalizedHook && l.personalizedSubject)),
+        (force || !l.personalizedHook),
     );
     if (targets.length === 0) {
       console.log("Nada pra personalizar.");
     } else {
       await personalizeLeads(targets, { force });
       save(leads);
-      console.log("Atualizado leads.json.");
+      console.log("Atualizado outreach.sqlite.");
     }
   } else if (cmd === "send") {
     const opts = {};

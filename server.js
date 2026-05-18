@@ -8,6 +8,13 @@ import { scrape } from "./lib/scraper.js";
 import { enrichEmails } from "./lib/emails.js";
 import { send } from "./lib/sender.js";
 import { personalizeLeads } from "./lib/personalize.js";
+import {
+  buildEmail,
+  buildEmailWithTemplate,
+  buildSubject,
+  getEmailTemplate,
+  saveEmailTemplate,
+} from "./lib/template.js";
 import { load, save } from "./lib/state.js";
 import { runJob, getJob, subscribe } from "./lib/jobs.js";
 import { requireAuth, checkPassword } from "./lib/auth.js";
@@ -70,7 +77,7 @@ app.get("/", (req, res) => {
       (l) =>
         l.status === "pending" &&
         l.website &&
-        !(l.personalizedHook && l.personalizedSubject),
+        !l.personalizedHook,
     ).length,
   };
   res.render("dashboard", { stats });
@@ -123,23 +130,41 @@ app.post("/api/scrape", (req, res) => {
 app.get("/review", (req, res) => {
   const leads = load();
   const pending = leads.filter((l) => l.status === "pending");
-  res.render("review", { leads: pending });
+  res.render("review", { leads: pending, buildSubject });
 });
 
-app.post("/api/leads/:key", (req, res) => {
-  const { key } = req.params;
-  const { status, email, personalizedSubject, personalizedHook } = req.body;
-  const leads = load();
-  const lead = leads.find((l) => (l.website || l.name) === key);
-  if (!lead) return res.status(404).json({ error: "not found" });
-  if (status) lead.status = status;
-  if (typeof email === "string") lead.email = email.trim().toLowerCase();
-  if (typeof personalizedSubject === "string")
-    lead.personalizedSubject = personalizedSubject.trim();
-  if (typeof personalizedHook === "string")
-    lead.personalizedHook = personalizedHook.trim();
-  save(leads);
-  res.json({ ok: true, lead });
+app.get("/template", (req, res) => {
+  res.render("template", { template: getEmailTemplate() });
+});
+
+app.post("/api/template", (req, res) => {
+  try {
+    const template = saveEmailTemplate(req.body);
+    res.json({ ok: true, template });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post("/api/template/preview", (req, res) => {
+  const { subject, body, name, personalizedHook } = req.body;
+  const current = getEmailTemplate();
+  try {
+    const template = {
+      subject: typeof subject === "string" ? subject : current.subject,
+      body: typeof body === "string" ? body : current.body,
+    };
+    const email = buildEmailWithTemplate(template, {
+      name: name || "Agência Exemplo",
+      replyTo: process.env.REPLY_TO || process.env.FROM_EMAIL || "reply@example.com",
+      personalizedHook:
+        personalizedHook ||
+        "vi que vocês trabalham com presença digital para empresas locais.",
+    });
+    res.json({ ok: true, email });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 app.post("/api/leads/bulk", (req, res) => {
@@ -159,17 +184,42 @@ app.post("/api/leads/bulk", (req, res) => {
   res.json({ ok: true, count });
 });
 
+app.post("/api/leads/:key", (req, res) => {
+  const { key } = req.params;
+  const { status, email, personalizedHook } = req.body;
+  const leads = load();
+  const lead = leads.find((l) => (l.website || l.name) === key);
+  if (!lead) return res.status(404).json({ error: "not found" });
+  if (status) lead.status = status;
+  if (typeof email === "string") lead.email = email.trim().toLowerCase();
+  if (typeof personalizedHook === "string")
+    lead.personalizedHook = personalizedHook.trim();
+  save(leads);
+  res.json({ ok: true, lead });
+});
+
+app.get("/api/leads/:key/preview", (req, res) => {
+  const { key } = req.params;
+  const leads = load();
+  const lead = leads.find((l) => (l.website || l.name) === key);
+  if (!lead) return res.status(404).json({ error: "not found" });
+  const email = buildEmail({
+    name: lead.name,
+    replyTo: process.env.REPLY_TO || process.env.FROM_EMAIL || "reply@example.com",
+    personalizedHook: lead.personalizedHook,
+  });
+  res.json({ ok: true, email, lead });
+});
+
 app.get("/personalize", (req, res) => {
   const leads = load();
   const pendingCount = leads.filter(
     (l) =>
       l.status === "pending" &&
       l.website &&
-      !(l.personalizedHook && l.personalizedSubject),
+      !l.personalizedHook,
   ).length;
-  const doneCount = leads.filter(
-    (l) => l.personalizedHook && l.personalizedSubject,
-  ).length;
+  const doneCount = leads.filter((l) => l.personalizedHook).length;
   res.render("personalize", { pendingCount, doneCount });
 });
 
@@ -181,7 +231,7 @@ app.post("/api/personalize", (req, res) => {
       (l) =>
         l.status === "pending" &&
         l.website &&
-        (force || !(l.personalizedHook && l.personalizedSubject)),
+        (force || !l.personalizedHook),
     );
     await personalizeLeads(targets, { force, onProgress });
     save(leads);
