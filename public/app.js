@@ -100,6 +100,18 @@
       });
     });
 
+    form.querySelectorAll("[data-preset-tab]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const tab = btn.dataset.presetTab;
+        form
+          .querySelectorAll("[data-preset-tab]")
+          .forEach((el) => el.classList.toggle("active", el === btn));
+        form.querySelectorAll("[data-preset-panel]").forEach((panel) => {
+          panel.classList.toggle("active", panel.dataset.presetPanel === tab);
+        });
+      });
+    });
+
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const fd = new FormData(form);
@@ -286,6 +298,57 @@
     });
 
     previewTemplate().catch(() => {});
+  }
+
+  if (path.startsWith("/leads/")) {
+    const root = document.querySelector(".lead-layout");
+    const key = root?.dataset.leadKey;
+    const scanBtn = document.getElementById("run-site-scan");
+    const scanStatus = document.getElementById("site-scan-status");
+    const notes = document.getElementById("lead-notes");
+    const saveNotes = document.getElementById("save-lead-notes");
+    const notesStatus = document.getElementById("lead-notes-status");
+
+    scanBtn?.addEventListener("click", async () => {
+      if (!key) return;
+      scanBtn.disabled = true;
+      scanBtn.textContent = "scanning…";
+      scanStatus.textContent = "checking pages, stack and pain signals…";
+      scanStatus.className = "form-status";
+      try {
+        const res = await fetch(`/api/leads/${encodeURIComponent(key)}/analyze`, {
+          method: "POST",
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "scan failed");
+        scanStatus.textContent = "scan saved. refreshing…";
+        scanStatus.className = "form-status ok";
+        window.location.reload();
+      } catch (err) {
+        scanStatus.textContent = err.message;
+        scanStatus.className = "form-status fail";
+        scanBtn.disabled = false;
+        scanBtn.textContent = "run scan";
+      }
+    });
+
+    saveNotes?.addEventListener("click", async () => {
+      if (!key) return;
+      notesStatus.textContent = "saving…";
+      notesStatus.className = "form-status";
+      const res = await fetch(`/api/leads/${encodeURIComponent(key)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: notes.value }),
+      });
+      if (res.ok) {
+        notesStatus.textContent = "saved";
+        notesStatus.className = "form-status ok";
+      } else {
+        notesStatus.textContent = "save failed";
+        notesStatus.className = "form-status fail";
+      }
+    });
   }
 
   if (path === "/review") {

@@ -42,7 +42,7 @@
         <tr data-key="<%= key %>">
           <td><input type="checkbox" class="row-check"></td>
           <td>
-            <div class="name"><%= lead.name %></div>
+            <a class="name lead-detail-link" href="/leads/<%= encodeURIComponent(key) %>"><%= lead.name %></a>
             <% if (lead.phone) { %><div class="meta"><%= lead.phone %></div><% } %>
             <div class="meta pers-status <%= hasPers ? 'ok' : 'missing' %>">
               <%= hasPers ? '✓ personalized' : '○ not personalized' %>

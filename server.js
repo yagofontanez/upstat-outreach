@@ -8,6 +8,7 @@ import { scrape } from "./lib/scraper.js";
 import { enrichEmails } from "./lib/emails.js";
 import { send } from "./lib/sender.js";
 import { personalizeLeads } from "./lib/personalize.js";
+import { analyzeSite } from "./lib/site-insights.js";
 import {
   buildEmail,
   buildEmailWithTemplate,
@@ -22,6 +23,14 @@ import { requireAuth, checkPassword } from "./lib/auth.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = parseInt(process.env.PORT || "3000", 10);
+
+function leadKey(lead) {
+  return lead.website || lead.name;
+}
+
+function findLead(leads, key) {
+  return leads.find((lead) => leadKey(lead) === key);
+}
 
 if (!process.env.UI_PASSWORD) {
   console.error("Defina UI_PASSWORD no .env antes de subir o servidor.");
@@ -133,6 +142,19 @@ app.get("/review", (req, res) => {
   res.render("review", { leads: pending, buildSubject });
 });
 
+app.get("/leads/:key", (req, res) => {
+  const leads = load();
+  const lead = findLead(leads, req.params.key);
+  if (!lead) return res.status(404).render("lead", { lead: null });
+  const email = buildEmail({
+    name: lead.name,
+    replyTo: process.env.REPLY_TO || process.env.FROM_EMAIL || "reply@example.com",
+    personalizedHook: lead.personalizedHook,
+    siteInsights: lead.siteInsights,
+  });
+  res.render("lead", { lead, email });
+});
+
 app.get("/template", (req, res) => {
   res.render("template", { template: getEmailTemplate() });
 });
@@ -160,6 +182,7 @@ app.post("/api/template/preview", (req, res) => {
       personalizedHook:
         personalizedHook ||
         "vi que vocês trabalham com presença digital para empresas locais.",
+      siteInsights: null,
     });
     res.json({ ok: true, email });
   } catch (err) {
@@ -186,14 +209,15 @@ app.post("/api/leads/bulk", (req, res) => {
 
 app.post("/api/leads/:key", (req, res) => {
   const { key } = req.params;
-  const { status, email, personalizedHook } = req.body;
+  const { status, email, personalizedHook, notes } = req.body;
   const leads = load();
-  const lead = leads.find((l) => (l.website || l.name) === key);
+  const lead = findLead(leads, key);
   if (!lead) return res.status(404).json({ error: "not found" });
   if (status) lead.status = status;
   if (typeof email === "string") lead.email = email.trim().toLowerCase();
   if (typeof personalizedHook === "string")
     lead.personalizedHook = personalizedHook.trim();
+  if (typeof notes === "string") lead.notes = notes.trim();
   save(leads);
   res.json({ ok: true, lead });
 });
@@ -201,14 +225,31 @@ app.post("/api/leads/:key", (req, res) => {
 app.get("/api/leads/:key/preview", (req, res) => {
   const { key } = req.params;
   const leads = load();
-  const lead = leads.find((l) => (l.website || l.name) === key);
+  const lead = findLead(leads, key);
   if (!lead) return res.status(404).json({ error: "not found" });
   const email = buildEmail({
     name: lead.name,
     replyTo: process.env.REPLY_TO || process.env.FROM_EMAIL || "reply@example.com",
     personalizedHook: lead.personalizedHook,
+    siteInsights: lead.siteInsights,
   });
   res.json({ ok: true, email, lead });
+});
+
+app.post("/api/leads/:key/analyze", async (req, res) => {
+  const { key } = req.params;
+  const leads = load();
+  const lead = findLead(leads, key);
+  if (!lead) return res.status(404).json({ error: "not found" });
+  if (!lead.website) return res.status(400).json({ error: "lead sem site" });
+
+  try {
+    lead.siteInsights = await analyzeSite(lead.website);
+    save(leads);
+    res.json({ ok: true, lead, siteInsights: lead.siteInsights });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 app.get("/personalize", (req, res) => {

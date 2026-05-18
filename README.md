@@ -41,12 +41,21 @@ A interface tem seis telas:
   `regenerate everything` quando ajustar o prompt.
 - **Review** — tabela com todos os pendentes, checkbox de seleção, edição inline do
   email **e da abertura personalizada**; preview do email final por lead. Ações por
-  linha (`P`/`Y`/`N`) e ações em lote.
+  linha (`P`/`Y`/`N`) e ações em lote. O nome da empresa abre a página individual
+  do lead.
 - **Template** — editor do subject e corpo do email com variáveis (`{{company}}`,
-  `{{opening}}`, `{{hook}}`, `{{url}}`, `{{replyTo}}`) e preview HTML/texto.
+  `{{opening}}`, `{{hook}}`, `{{stack}}`, `{{painSignals}}`, `{{url}}`,
+  `{{replyTo}}`) e preview HTML/texto.
 - **Send** — mostra a contagem de aprovados na fila, formulário separado pra teste
   (1 email pro endereço informado) e pra disparo real (com `limit` opcional). Log
   ao vivo do envio.
+
+Cada lead também tem uma página própria (`/leads/...`) com dados, preview do site,
+notas internas, histórico, email renderizado e um scan técnico sob demanda. O scan
+faz um crawler leve em páginas como `/servicos`, `/portfolio`, `/clientes`,
+`/cases` e `/manutencao`, detecta stack provável (WordPress, Wix, Shopify, Webflow,
+Loja Integrada, Nuvemshop etc.) e salva sinais simples de dor como lentidão, erros
+HTTP, redirects, home pesada e ausência de status page aparente.
 
 O CLI continua funcionando em paralelo — ambos compartilham o mesmo `outreach.sqlite`.
 Se existir um `leads.json` legado, ele é importado automaticamente na primeira execução

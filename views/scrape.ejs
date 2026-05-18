@@ -19,10 +19,59 @@
           <span class="input-prefix">term</span>
           <input id="scrape-term" name="term" placeholder="agência de marketing" autocomplete="off" required>
         </div>
-        <div class="quick-picks" aria-label="example search terms">
+      </div>
+      <div class="search-presets">
+        <div class="preset-head">
+          <span class="k">search ideas</span>
+          <span class="v">click to fill term</span>
+        </div>
+        <div class="preset-tabs" role="tablist" aria-label="search preset categories">
+          <button type="button" class="active" data-preset-tab="digital">digital</button>
+          <button type="button" data-preset-tab="local">local</button>
+          <button type="button" data-preset-tab="tech">tech</button>
+          <button type="button" data-preset-tab="upstat">upstat fit</button>
+        </div>
+        <div class="preset-panel active" data-preset-panel="digital">
           <button type="button" data-fill="term" data-value="agência de marketing">agência de marketing</button>
+          <button type="button" data-fill="term" data-value="agência de tráfego pago">agência de tráfego pago</button>
+          <button type="button" data-fill="term" data-value="agência de publicidade">agência de publicidade</button>
+          <button type="button" data-fill="term" data-value="agência digital">agência digital</button>
           <button type="button" data-fill="term" data-value="estúdio de design">estúdio de design</button>
+          <button type="button" data-fill="term" data-value="social media">social media</button>
+          <button type="button" data-fill="term" data-value="consultoria de marketing">consultoria de marketing</button>
+          <button type="button" data-fill="term" data-value="branding">branding</button>
+        </div>
+        <div class="preset-panel" data-preset-panel="local">
+          <button type="button" data-fill="term" data-value="clínica estética">clínica estética</button>
+          <button type="button" data-fill="term" data-value="clínica odontológica">clínica odontológica</button>
+          <button type="button" data-fill="term" data-value="escola particular">escola particular</button>
+          <button type="button" data-fill="term" data-value="curso profissionalizante">curso profissionalizante</button>
+          <button type="button" data-fill="term" data-value="imobiliária">imobiliária</button>
+          <button type="button" data-fill="term" data-value="construtora">construtora</button>
+          <button type="button" data-fill="term" data-value="contabilidade">contabilidade</button>
+          <button type="button" data-fill="term" data-value="hotel">hotel</button>
+          <button type="button" data-fill="term" data-value="pousada">pousada</button>
+          <button type="button" data-fill="term" data-value="restaurante">restaurante</button>
+        </div>
+        <div class="preset-panel" data-preset-panel="tech">
+          <button type="button" data-fill="term" data-value="loja virtual">loja virtual</button>
+          <button type="button" data-fill="term" data-value="ecommerce">ecommerce</button>
+          <button type="button" data-fill="term" data-value="software house">software house</button>
+          <button type="button" data-fill="term" data-value="empresa de tecnologia">empresa de tecnologia</button>
+          <button type="button" data-fill="term" data-value="startup">startup</button>
+          <button type="button" data-fill="term" data-value="consultoria de TI">consultoria de TI</button>
+          <button type="button" data-fill="term" data-value="provedor de internet">provedor de internet</button>
+          <button type="button" data-fill="term" data-value="assistência técnica">assistência técnica</button>
+        </div>
+        <div class="preset-panel" data-preset-panel="upstat">
+          <button type="button" data-fill="term" data-value="criação de sites">criação de sites</button>
           <button type="button" data-fill="term" data-value="desenvolvimento de sites">desenvolvimento de sites</button>
+          <button type="button" data-fill="term" data-value="manutenção de sites">manutenção de sites</button>
+          <button type="button" data-fill="term" data-value="agência de criação de sites">agência de criação de sites</button>
+          <button type="button" data-fill="term" data-value="hospedagem de sites">hospedagem de sites</button>
+          <button type="button" data-fill="term" data-value="suporte wordpress">suporte wordpress</button>
+          <button type="button" data-fill="term" data-value="desenvolvedor wordpress">desenvolvedor wordpress</button>
+          <button type="button" data-fill="term" data-value="sistemas web">sistemas web</button>
         </div>
       </div>
       <div class="field scrape-field">
