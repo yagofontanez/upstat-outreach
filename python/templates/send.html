@@ -1,5 +1,6 @@
-<%- include('_header', { title: 'send · upstat outreach', active: 'send' }) %>
-
+{% extends "base.html" %}
+{% block title %}send · upstat outreach{% endblock %}
+{% block content %}
 <header class="page-head">
   <span class="eyebrow">03 ▸ dispatch</span>
   <h1>fire the queue.</h1>
@@ -7,9 +8,9 @@
 </header>
 
 <div class="queue-counter">
-  <span class="n"><%= approvedCount %></span>
+  <span class="n">{{ approvedCount }}</span>
   <span class="label">approved · awaiting dispatch</span>
-  <% if (approvedCount > 0) { %><span class="pulse-dot" title="ready"></span><% } %>
+  {% if approvedCount > 0 %}<span class="pulse-dot" title="ready"></span>{% endif %}
 </div>
 
 <div class="dispatch-grid">
@@ -47,4 +48,4 @@
   <div class="terminal-body" id="send-log"></div>
   <div id="send-summary" class="summary" style="padding: 0 var(--s-4) var(--s-4);"></div>
 </div>
-<%- include('_footer') %>
+{% endblock %}

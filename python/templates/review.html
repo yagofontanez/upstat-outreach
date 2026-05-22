@@ -1,11 +1,13 @@
-<%- include('_header', { title: 'review · upstat outreach', active: 'review' }) %>
+{% extends "base.html" %}
+{% block title %}review · upstat outreach{% endblock %}
+{% block content %}
 <header class="page-head">
   <span class="eyebrow">02 ▸ triage</span>
   <h1>review the queue.</h1>
   <p>approve leads with a verified email, drop the rest. edits save on blur. <span class="mono" style="color:var(--text-dim);">y</span> approves the focused row, <span class="mono" style="color:var(--text-dim);">n</span> drops it.</p>
 </header>
 
-<% if (leads.length === 0) { %>
+{% if leads|length == 0 %}
   <div class="empty">
     <pre class="ascii">           ┌───────────────┐
            │   //  empty   │
@@ -13,9 +15,9 @@
     <h3>nothing pending.</h3>
     <p>run a <a href="/scrape" class="mono">/scrape</a> to populate the queue.</p>
   </div>
-<% } else { %>
+{% else %}
   <div class="bulk-bar">
-    <span class="count"><strong><%= leads.length %></strong> pending</span>
+    <span class="count"><strong>{{ leads|length }}</strong> pending</span>
     <span class="spacer"></span>
     <button type="button" class="btn btn-sm btn-ghost" data-bulk="approve-with-email">approve all w/ email</button>
     <button type="button" class="btn btn-sm btn-ghost" data-bulk="reject-no-email">drop all w/o email</button>
@@ -38,27 +40,29 @@
       </tr>
     </thead>
     <tbody>
-      <% leads.forEach(lead => { const key = lead.website || lead.name; const hasPers = !!lead.personalizedHook; %>
-        <tr data-key="<%= key %>">
+      {% for lead in leads %}
+        {% set key = lead.website or lead.name %}
+        {% set has_pers = lead.personalizedHook %}
+        <tr data-key="{{ key }}">
           <td><input type="checkbox" class="row-check"></td>
           <td>
-            <a class="name lead-detail-link" href="/leads/<%= encodeURIComponent(key) %>"><%= lead.name %></a>
-            <% if (lead.phone) { %><div class="meta"><%= lead.phone %></div><% } %>
-            <div class="meta pers-status <%= hasPers ? 'ok' : 'missing' %>">
-              <%= hasPers ? '✓ personalized' : '○ not personalized' %>
+            <a class="name lead-detail-link" href="/leads/{{ key | urlencode }}">{{ lead.name }}</a>
+            {% if lead.phone %}<div class="meta">{{ lead.phone }}</div>{% endif %}
+            <div class="meta pers-status {{ 'ok' if has_pers else 'missing' }}">
+              {{ '✓ personalized' if has_pers else '○ not personalized' }}
             </div>
           </td>
           <td>
-            <input class="email-input" type="email" value="<%= lead.email || '' %>" placeholder="(empty)">
+            <input class="email-input" type="email" value="{{ lead.email or '' }}" placeholder="(empty)">
           </td>
           <td>
-            <% if (lead.website) { %>
-              <a class="site-link" href="<%= lead.website %>" target="_blank" rel="noopener"><%= lead.website.replace(/^https?:\/\//, '') %></a>
-            <% } else { %>
+            {% if lead.website %}
+              <a class="site-link" href="{{ lead.website }}" target="_blank" rel="noopener">{{ lead.website | strip_scheme }}</a>
+            {% else %}
               <span class="faint mono" style="font-size:11px;">—</span>
-            <% } %>
+            {% endif %}
           </td>
-          <td><span class="meta" style="margin: 0;"><%= lead.searchedAs || '—' %></span></td>
+          <td><span class="meta" style="margin: 0;">{{ lead.searchedAs or '—' }}</span></td>
           <td class="actions-col">
             <div class="row-actions">
               <button type="button" data-action="preview" title="preview email">P</button>
@@ -67,18 +71,18 @@
             </div>
           </td>
         </tr>
-        <tr class="pers-row" data-key="<%= key %>">
+        <tr class="pers-row" data-key="{{ key }}">
           <td></td>
           <td colspan="5">
             <div class="pers-fields">
               <label class="pers-label">subject</label>
-              <input class="pers-subject" type="text" value="<%= buildSubject(lead.name) %>" readonly title="subject used on send">
+              <input class="pers-subject" type="text" value="{{ build_subject(lead.name) }}" readonly title="subject used on send">
               <label class="pers-label">hook</label>
-              <textarea class="pers-hook" rows="2" maxlength="300" placeholder="(no personalized opening — falls back to default)"><%= lead.personalizedHook || '' %></textarea>
+              <textarea class="pers-hook" rows="2" maxlength="300" placeholder="(no personalized opening — falls back to default)">{{ lead.personalizedHook or '' }}</textarea>
             </div>
           </td>
         </tr>
-      <% }) %>
+      {% endfor %}
     </tbody>
   </table>
 
@@ -104,5 +108,5 @@
       <pre id="lead-preview-text" class="email-preview-text hidden"></pre>
     </section>
   </div>
-<% } %>
-<%- include('_footer') %>
+{% endif %}
+{% endblock %}

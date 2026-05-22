@@ -1,33 +1,34 @@
 # UpStat Outreach
 
-Script de cold outreach pro UpStat: scrapa agências no Google Maps, busca email no site
-delas, deixa você revisar, editar o template e dispara via Resend.
+Ferramenta de cold outreach pro UpStat: scrapa agências no Google Maps, busca email no site
+delas, deixa você revisar, editar o template e dispara via Resend. Implementada em **Python
+(FastAPI + Jinja2)**, com web UI e CLI compartilhando o mesmo `outreach.sqlite`.
 
 ## Setup (uma vez)
 
 ```bash
-npm install
-npx playwright install chromium
-cp .env.example .env
-# edite .env com sua RESEND_API_KEY
+cd python
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+playwright install chromium        # só necessário pro scrape
+cp ../.env.example ../.env         # edite .env com suas chaves
 ```
 
-Requer Node 24+ porque a persistência usa `node:sqlite`.
-
-`.env` precisa de:
+`.env` (na raiz do projeto) precisa de:
 
 - `RESEND_API_KEY` — chave da [resend.com](https://resend.com)
 - `FROM_EMAIL` — remetente. O domínio precisa estar **verificado** no Resend (SPF/DKIM)
 - `REPLY_TO` — opcional. Email pra onde as respostas devem ir
 - `GROQ_API_KEY` — chave da [groq.com](https://console.groq.com) (free tier ok). Usado pra gerar aberturas personalizadas via `llama-3.3-70b-versatile`
-- `UI_PASSWORD` — senha pra entrar na interface web (`npm run web`)
+- `UI_PASSWORD` — senha pra entrar na interface web
 - `SESSION_SECRET` — string aleatória pra assinar cookies da UI
 - `PORT` — porta da UI (default `3000`)
 
 ## Web UI (recomendado)
 
 ```bash
-npm run web
+cd python && python app.py
 # abre http://localhost:3000 — login com a senha de UI_PASSWORD
 ```
 
@@ -65,11 +66,12 @@ quando o banco ainda estiver vazio.
 
 Todos os comandos guardam estado em `outreach.sqlite`, então você pode parar e voltar a qualquer
 momento. Cada lead tem um `status`: `pending` → `approved`/`rejected` → `sent`.
+Rode tudo de dentro de `python/` com a venv ativada.
 
 ### `scrape` — coleta leads do Maps
 
 ```bash
-node index.js scrape "<termo>" "<cidade>" [maxResults=30]
+python cli.py scrape "<termo>" "<cidade>" [maxResults=30]
 ```
 
 Abre o Chromium (visível, intencional), busca `<termo> em <cidade>` no Google Maps, rola a
@@ -79,9 +81,9 @@ Depois visita o site de cada um e tenta extrair email.
 Exemplos:
 
 ```bash
-node index.js scrape "agência de marketing" "Curitiba" 30
-node index.js scrape "estúdio de design" "São Paulo" 40
-node index.js scrape "agência de viagens" "Belo Horizonte"
+python cli.py scrape "agência de marketing" "Curitiba" 30
+python cli.py scrape "estúdio de design" "São Paulo" 40
+python cli.py scrape "agência de viagens" "Belo Horizonte"
 ```
 
 Os leads novos são adicionados ao banco SQLite (dedup por website). Rodar `scrape` várias
@@ -90,18 +92,18 @@ vezes com termos/cidades diferentes só acumula.
 ### `reenrich` — re-tenta extração de email
 
 ```bash
-node index.js reenrich          # só os leads sem email
-node index.js reenrich --force  # re-tenta todos, sobrescreve emails existentes
+python cli.py reenrich          # só os leads sem email
+python cli.py reenrich --force  # re-tenta todos, sobrescreve emails existentes
 ```
 
-Útil depois de mexer em `lib/emails.js` (regex, ofuscações, paths). Não refaz o scrape do
+Útil depois de mexer em `emails.py` (regex, ofuscações, paths). Não refaz o scrape do
 Maps — só visita os sites de novo.
 
 ### `personalize` — gera abertura por lead via Groq
 
 ```bash
-node index.js personalize           # só os leads sem personalização ainda
-node index.js personalize --force   # regenera tudo (após ajustar o prompt)
+python cli.py personalize           # só os leads sem personalização ainda
+python cli.py personalize --force   # regenera tudo (após ajustar o prompt)
 ```
 
 Pra cada lead pendente com site, baixa a home, extrai sinais (title, meta description,
@@ -111,12 +113,12 @@ Salvo no banco como `personalizedHook`. O subject vem do template configurado na
 ou, por padrão, `monitoramento de uptime pra {Empresa}`. Custo: 0 (free tier do Groq, ~14k
 requests/dia).
 
-Prompt em `lib/personalize.js` (`SYSTEM`). Ajuste lá se quiser tom diferente.
+Prompt em `personalize.py` (`SYSTEM`). Ajuste lá se quiser tom diferente.
 
 ### `review` — revisão interativa
 
 ```bash
-node index.js review
+python cli.py review
 ```
 
 Mostra um a um os leads pendentes. Comandos durante a revisão:
@@ -134,9 +136,9 @@ ele continua de onde parou.
 ### `send` — dispara os aprovados
 
 ```bash
-node index.js send                              # envia tudo aprovado
-node index.js send --limit 10                   # envia só os 10 primeiros da fila
-node index.js send --email teste@gmail.com      # envia 1 email de teste, não altera leads
+python cli.py send                              # envia tudo aprovado
+python cli.py send --limit 10                   # envia só os 10 primeiros da fila
+python cli.py send --email teste@gmail.com      # envia 1 email de teste, não altera leads
 ```
 
 Envia via Resend pros leads com `status: approved` que ainda não foram enviados. Delay de
@@ -155,34 +157,54 @@ enviados.
 ## Fluxo típico
 
 ```bash
+cd python && source .venv/bin/activate
+
 # colete em vários termos/cidades
-node index.js scrape "agência de marketing" "São Paulo" 40
-node index.js scrape "agência de marketing" "Rio de Janeiro" 40
-node index.js scrape "estúdio de design" "Curitiba" 30
+python cli.py scrape "agência de marketing" "São Paulo" 40
+python cli.py scrape "agência de marketing" "Rio de Janeiro" 40
+python cli.py scrape "estúdio de design" "Curitiba" 30
 
 # gere aberturas únicas pra cada lead
-node index.js personalize
+python cli.py personalize
 
 # revise tudo de uma vez (edite o hook se a IA escreveu algo estranho)
-node index.js review
+python cli.py review
 
 # dispare
-node index.js send
+python cli.py send
 ```
+
+## Estrutura do código (`python/`)
+
+| arquivo | papel |
+|---|---|
+| `app.py` | servidor web FastAPI + rotas |
+| `cli.py` | comandos de linha de comando |
+| `scraper.py` | scraping do Google Maps (Playwright) |
+| `site_insights.py` | scan técnico de sites |
+| `emails.py` | extração de email dos sites |
+| `personalize.py` | geração de hook via Groq |
+| `sender.py` | envio via Resend |
+| `mailtemplate.py` | montagem do email + template editável |
+| `state.py` | persistência SQLite |
+| `jobs.py` | jobs em background + streaming SSE |
+| `templates/*.html` | views Jinja2 |
+
+Os assets servidos ao navegador ficam em `public/` (na raiz).
 
 ## Customizando
 
-- **Copy do email:** `lib/template.js`. Edita antes do primeiro envio — quanto mais
+- **Copy do email:** `mailtemplate.py`. Edita antes do primeiro envio — quanto mais
   específico ao ICP da busca, melhor a resposta. Pela UI, use a tela **Template**.
-- **Paths visitados pra achar email:** `PATHS` em `lib/emails.js`.
-- **TLDs aceitos:** `PLAUSIBLE_TLDS` em `lib/emails.js`.
-- **Delay entre envios:** `DELAY_MS` em `lib/sender.js` (padrão 6000ms).
-- **Seletores do Maps:** `lib/scraper.js`. Se o Google mudar o DOM e quebrar, abre o Maps
+- **Paths visitados pra achar email:** `PATHS` em `emails.py`.
+- **TLDs aceitos:** `PLAUSIBLE_TLDS` em `emails.py`.
+- **Delay entre envios:** `DELAY_S` em `sender.py` (padrão 6s).
+- **Seletores do Maps:** `scraper.py`. Se o Google mudar o DOM e quebrar, abre o Maps
   no DevTools e ajusta `a.hfpxzc`, `h1.DUwDvf`, `a[data-item-id="authority"]`.
 
 ## Estrutura dos leads
 
-Os leads ficam em `outreach.sqlite`. O formato lógico de cada lead continua sendo:
+Os leads ficam em `outreach.sqlite`. O formato lógico de cada lead é:
 
 ```json
 [

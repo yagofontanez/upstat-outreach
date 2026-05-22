@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}{{ (lead.name ~ ' · lead') if lead else 'lead not found' }}{% endblock %}
+{% block content %}
+{% if not lead %}
+  <div class="empty">
+    <pre class="ascii">           ┌───────────────┐
+           │  // missing   │
+           └───────────────┘</pre>
+    <h3>lead not found.</h3>
+    <p><a href="/review" class="mono">back to review</a></p>
+  </div>
+{% else %}
+  <header class="lead-hero">
+    <div>
+      <a href="/review" class="back-link">← review</a>
+      <span class="eyebrow">lead detail</span>
+      <h1>{{ lead.name }}</h1>
+      <p>{{ lead.searchedAs or 'manual lead' }}</p>
+    </div>
+    <div class="lead-status">
+      <span class="k">status</span>
+      <strong>{{ lead.status or 'pending' }}</strong>
+    </div>
+  </header>
+
+  <div class="lead-layout" data-lead-key="{{ lead.website or lead.name }}">
+    <section class="lead-main">
+      <div class="lead-section">
+        <div class="section-head compact">
+          <span class="num">01 ▸ data</span>
+          <h2>company</h2>
+        </div>
+        <div class="lead-data-grid">
+          <div><span class="k">email</span><strong>{{ lead.email or '—' }}</strong></div>
+          <div><span class="k">phone</span><strong>{{ lead.phone or '—' }}</strong></div>
+          <div><span class="k">website</span>
+            {% if lead.website %}
+              <a href="{{ lead.website }}" target="_blank" rel="noopener">{{ lead.website | strip_scheme }}</a>
+            {% else %}
+              <strong>—</strong>
+            {% endif %}
+          </div>
+          <div><span class="k">address</span><strong>{{ lead.address or '—' }}</strong></div>
+        </div>
+      </div>
+
+      <div class="lead-section">
+        <div class="section-head compact">
+          <span class="num">02 ▸ site</span>
+          <h2>preview</h2>
+          {% if lead.website %}
+            <button type="button" class="btn btn-sm btn-ghost" id="run-site-scan">run scan</button>
+          {% endif %}
+        </div>
+        {% if lead.website %}
+          <iframe class="site-preview-frame" src="{{ lead.website }}" loading="lazy" referrerpolicy="no-referrer"></iframe>
+        {% else %}
+          <div class="empty small"><h3>no website.</h3></div>
+        {% endif %}
+        <p id="site-scan-status" class="form-status"></p>
+      </div>
+
+      <div class="lead-section">
+        <div class="section-head compact">
+          <span class="num">03 ▸ insights</span>
+          <h2>stack + pain</h2>
+        </div>
+        {% set insights = lead.siteInsights %}
+        {% if not insights %}
+          <div class="insight-empty">
+            <span class="mono">no scan yet</span>
+            <p>run a scan to crawl relevant pages, detect stack, and find simple uptime/delivery signals.</p>
+          </div>
+        {% else %}
+          <div class="insight-summary">
+            <div><span class="k">checked</span><strong>{{ insights.checkedAt | datetimebr }}</strong></div>
+            <div><span class="k">pages ok</span><strong>{{ insights.summary.pagesOk }}/{{ insights.summary.pagesChecked }}</strong></div>
+            <div><span class="k">home</span><strong>{{ insights.summary.homeStatus }} · {{ insights.summary.homeResponseMs }}ms</strong></div>
+          </div>
+
+          <div class="chip-block">
+            <span class="block-label">stack</span>
+            {% if insights.techStack|length %}
+              <div class="chips">
+                {% for tech in insights.techStack %}<span>{{ tech }}</span>{% endfor %}
+              </div>
+            {% else %}
+              <p class="muted">No known stack detected.</p>
+            {% endif %}
+          </div>
+
+          <div class="pain-list">
+            <span class="block-label">signals</span>
+            {% if insights.painSignals|length %}
+              {% for signal in insights.painSignals %}
+                <div class="pain-item {{ signal.severity }}">
+                  <strong>{{ signal.label }}</strong>
+                  <span>{{ signal.detail }}</span>
+                </div>
+              {% endfor %}
+            {% else %}
+              <p class="muted">No obvious pain signals found.</p>
+            {% endif %}
+          </div>
+
+          <div class="crawl-table">
+            <span class="block-label">crawled pages</span>
+            {% for page in insights.pages %}
+              <div class="crawl-row">
+                <span>{{ page.path }}</span>
+                <strong>{{ page.status or 'fail' }}</strong>
+                <em>{{ page.responseMs }}ms</em>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    </section>
+
+    <aside class="lead-side">
+      <section class="panel">
+        <div class="panel-head"><span>▸ notes</span></div>
+        <textarea id="lead-notes" rows="7" placeholder="internal notes">{{ lead.notes or '' }}</textarea>
+        <button type="button" class="btn btn-sm" id="save-lead-notes" style="margin-top: var(--s-3);">save notes</button>
+        <p id="lead-notes-status" class="form-status"></p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><span>▸ events</span></div>
+        <div class="timeline">
+          <div><span>collected</span><strong>{{ lead.searchedAs or 'unknown source' }}</strong></div>
+          {% if lead.personalizedAt %}<div><span>personalized</span><strong>{{ lead.personalizedAt | datetimebr }}</strong></div>{% endif %}
+          {% if lead.sentAt %}<div><span>sent</span><strong>{{ lead.sentAt | datetimebr }}</strong></div>{% endif %}
+          {% if lead.resendId %}<div><span>resend id</span><strong>{{ lead.resendId }}</strong></div>{% endif %}
+          {% if lead.lastError %}<div><span>last error</span><strong>{{ lead.lastError }}</strong></div>{% endif %}
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><span>▸ email render</span></div>
+        <div class="email-preview-meta">
+          <span class="k">subject</span>
+          <strong>{{ email.subject }}</strong>
+        </div>
+        <div class="email-preview-html compact">{{ email.html | safe }}</div>
+      </section>
+    </aside>
+  </div>
+{% endif %}
+{% endblock %}

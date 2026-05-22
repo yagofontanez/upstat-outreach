@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}upstat / outreach{% endblock %}</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  {% if show_nav|default(true) %}
+  <header class="topbar">
+    <a class="brand bare" href="/">upstat</a>
+    <nav>
+      <a href="/scrape" class="{{ 'active' if active == 'scrape' else '' }}">Scrape</a>
+      <a href="/personalize" class="{{ 'active' if active == 'personalize' else '' }}">Personalize</a>
+      <a href="/review" class="{{ 'active' if active == 'review' else '' }}">Review</a>
+      <a href="/template" class="{{ 'active' if active == 'template' else '' }}">Template</a>
+      <a href="/send" class="{{ 'active' if active == 'send' else '' }}">Send</a>
+    </nav>
+    <form action="/logout" method="post" class="logout">
+      <button type="submit">⏻ exit</button>
+    </form>
+  </header>
+  {% endif %}
+  <main>
+{% block content %}{% endblock %}
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

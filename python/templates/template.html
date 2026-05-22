@@ -1,9 +1,10 @@
-<%- include('_header', { title: 'template · upstat outreach', active: 'template' }) %>
-
+{% extends "base.html" %}
+{% block title %}template · upstat outreach{% endblock %}
+{% block content %}
 <header class="page-head">
   <span class="eyebrow">03 ▸ template</span>
   <h1>edit the email.</h1>
-  <p>use variables like <span class="mono">{{company}}</span>, <span class="mono">{{opening}}</span>, <span class="mono">{{hook}}</span>, <span class="mono">{{stack}}</span>, <span class="mono">{{painSignals}}</span>, <span class="mono">{{url}}</span>, and <span class="mono">{{replyTo}}</span>. preview does not send anything.</p>
+  <p>use variables like <span class="mono">{% raw %}{{company}}{% endraw %}</span>, <span class="mono">{% raw %}{{opening}}{% endraw %}</span>, <span class="mono">{% raw %}{{hook}}{% endraw %}</span>, <span class="mono">{% raw %}{{stack}}{% endraw %}</span>, <span class="mono">{% raw %}{{painSignals}}{% endraw %}</span>, <span class="mono">{% raw %}{{url}}{% endraw %}</span>, and <span class="mono">{% raw %}{{replyTo}}{% endraw %}</span>. preview does not send anything.</p>
 </header>
 
 <div class="template-grid">
@@ -12,11 +13,11 @@
     <div class="form-grid">
       <div class="field">
         <label>subject</label>
-        <input name="subject" type="text" value="<%= template.subject %>" required>
+        <input name="subject" type="text" value="{{ template.subject }}" required>
       </div>
       <div class="field">
         <label>body</label>
-        <textarea name="body" rows="18" required><%= template.body %></textarea>
+        <textarea name="body" rows="18" required>{{ template.body }}</textarea>
       </div>
       <div class="template-actions">
         <button type="button" class="btn btn-ghost" id="template-preview-btn">preview</button>
@@ -40,5 +41,4 @@
     <pre id="template-preview-text" class="email-preview-text hidden"></pre>
   </aside>
 </div>
-
-<%- include('_footer') %>
+{% endblock %}

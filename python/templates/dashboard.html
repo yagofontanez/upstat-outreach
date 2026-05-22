@@ -1,31 +1,32 @@
-<%- include('_header', { title: 'dashboard · upstat outreach' }) %>
-
+{% extends "base.html" %}
+{% block title %}dashboard · upstat outreach{% endblock %}
+{% block content %}
 <section class="hero">
   <div>
     <span class="eyebrow">01 ▸ queue status</span>
-    <div class="stat-big <%= stats.approved === 0 ? 'empty' : '' %>">
-      <%= stats.approved %><span class="unit">approved</span>
+    <div class="stat-big {{ 'empty' if stats.approved == 0 else '' }}">
+      {{ stats.approved }}<span class="unit">approved</span>
     </div>
   </div>
   <p class="stat-context">
-    <% if (stats.approved > 0) { %>
+    {% if stats.approved > 0 %}
       <span class="serif">awaiting dispatch.</span><br>
       <span class="mono" style="font-size:11px;letter-spacing:0.18em;color:var(--text-faint);text-transform:uppercase;">→ open send to fire</span>
-    <% } else if (stats.pending > 0) { %>
+    {% elif stats.pending > 0 %}
       <span class="serif">pending review.</span><br>
       <span class="mono" style="font-size:11px;letter-spacing:0.18em;color:var(--text-faint);text-transform:uppercase;">→ open review to triage</span>
-    <% } else { %>
+    {% else %}
       <span class="serif">queue empty.</span><br>
       <span class="mono" style="font-size:11px;letter-spacing:0.18em;color:var(--text-faint);text-transform:uppercase;">→ run a scrape</span>
-    <% } %>
+    {% endif %}
   </p>
 </section>
 
 <div class="mini-stats">
-  <div class="item"><span class="k">Total</span><span class="v"><%= stats.total %></span></div>
-  <div class="item"><span class="k">Pending</span><span class="v dim"><%= stats.pending %></span></div>
-  <div class="item"><span class="k">Sent</span><span class="v"><%= stats.sent %></span></div>
-  <div class="item"><span class="k">Dropped</span><span class="v dim"><%= stats.rejected %></span></div>
+  <div class="item"><span class="k">Total</span><span class="v">{{ stats.total }}</span></div>
+  <div class="item"><span class="k">Pending</span><span class="v dim">{{ stats.pending }}</span></div>
+  <div class="item"><span class="k">Sent</span><span class="v">{{ stats.sent }}</span></div>
+  <div class="item"><span class="k">Dropped</span><span class="v dim">{{ stats.rejected }}</span></div>
 </div>
 
 <section class="section">
@@ -47,7 +48,7 @@
       <span class="num">02</span>
       <div class="body">
         <h3>personalize via groq</h3>
-        <p>generate a custom opening per lead. <%= stats.personalizable %> pending.</p>
+        <p>generate a custom opening per lead. {{ stats.personalizable }} pending.</p>
       </div>
       <span class="arrow">→</span>
     </a>
@@ -77,4 +78,4 @@
     </a>
   </div>
 </section>
-<%- include('_footer') %>
+{% endblock %}

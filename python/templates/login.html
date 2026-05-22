@@ -1,4 +1,6 @@
-<%- include('_header', { title: 'login · upstat outreach', showNav: false }) %>
+{% extends "base.html" %}
+{% block title %}login · upstat outreach{% endblock %}
+{% block content %}
 <div class="login-wrap">
   <div class="login-card">
     <div class="brand-mark">upstat</div>
@@ -8,10 +10,10 @@
     <form method="post" action="/login" autocomplete="off">
       <input type="password" name="password" placeholder="••••••••" autofocus required>
       <button type="submit" class="btn btn-primary">unlock</button>
-      <% if (error) { %><p class="err" style="grid-column: 1 / -1;"><%= error %></p><% } %>
+      {% if error %}<p class="err" style="grid-column: 1 / -1;">{{ error }}</p>{% endif %}
     </form>
 
     <p class="footer-note">// single-user instance. password set via <span class="mono">UI_PASSWORD</span> env var.</p>
   </div>
 </div>
-<%- include('_footer') %>
+{% endblock %}
