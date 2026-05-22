@@ -1,0 +1,10 @@
+# Troque pelo seu domínio. O Caddy emite e renova o certificado HTTPS sozinho.
+outreach.seu-dominio.com {
+    encode gzip
+
+    reverse_proxy 127.0.0.1:8000 {
+        # SSE (log ao vivo de scrape/personalize/send/follow-up): flush imediato,
+        # sem buffering — senão o terminal ao vivo trava.
+        flush_interval -1
+    }
+}

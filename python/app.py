@@ -27,14 +27,19 @@ from mailtemplate import (
     build_email_with_template,
     build_subject,
     get_email_template,
+    get_followup_template,
     save_email_template,
+    save_followup_template,
 )
 from paths import PUBLIC_DIR, TEMPLATES_DIR
 from personalize import personalize_leads
+from scoring import apply_score, score_label
 from scraper import scrape
-from sender import send as send_emails
+from sender import followup_candidates, send as send_emails, send_followups
 from site_insights import analyze_site
-from state import load, save
+from state import add_suppression, is_suppressed, list_suppressions, load, save
+from unsubscribe import unsubscribe_url, verify_token
+from webhooks import process_event, verify_signature
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -67,6 +72,7 @@ def _datetimebr(iso):
 env.filters["strip_scheme"] = _strip_scheme
 env.filters["datetimebr"] = _datetimebr
 env.globals["build_subject"] = build_subject
+env.globals["score_label"] = score_label
 
 
 def render(name, **ctx):
@@ -89,7 +95,15 @@ def reply_to_addr():
 # ---------------------------------------------------------------- app
 app = FastAPI()
 
-PUBLIC_PATHS = {"/login", "/logout", "/styles.css", "/app.js", "/favicon.svg"}
+PUBLIC_PATHS = {
+    "/login",
+    "/logout",
+    "/styles.css",
+    "/app.js",
+    "/favicon.svg",
+    "/unsubscribe",
+    "/webhooks/resend",
+}
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -103,12 +117,14 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(AuthMiddleware)
+# COOKIE_SECURE=true em produção (HTTPS) pra o cookie de login só trafegar via TLS.
+_cookie_secure = os.environ.get("COOKIE_SECURE", "").lower() in ("1", "true", "yes")
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.environ.get("SESSION_SECRET", "dev-secret-change-me"),
     max_age=60 * 60 * 24 * 7,
     same_site="lax",
-    https_only=False,
+    https_only=_cookie_secure,
 )
 
 # ---------------------------------------------------------------- static
@@ -233,6 +249,8 @@ async def api_scrape(request: Request):
 def review_page():
     leads = load()
     pending = [l for l in leads if l.get("status") == "pending"]
+    # leads mais "quentes" (score de dor) primeiro
+    pending.sort(key=lambda l: l.get("score") or 0, reverse=True)
     return render("review.html", leads=pending, active="review")
 
 
@@ -256,7 +274,24 @@ def lead_detail(key: str):
 
 @app.get("/template")
 def template_page():
-    return render("template.html", template=get_email_template(), active="template")
+    return render(
+        "template.html",
+        template=get_email_template(),
+        followup=get_followup_template(),
+        active="template",
+    )
+
+
+@app.post("/api/followup-template")
+async def api_followup_template(request: Request):
+    body = await request.json()
+    try:
+        followup = save_followup_template(
+            body.get("subject"), body.get("body"), body.get("delay_days")
+        )
+        return JSONResponse({"ok": True, "followup": followup})
+    except Exception as err:
+        return JSONResponse({"error": str(err)}, status_code=400)
 
 
 @app.post("/api/template")
@@ -336,8 +371,16 @@ async def api_lead_analyze(key: str):
         return JSONResponse({"error": "lead sem site"}, status_code=400)
     try:
         lead["siteInsights"] = analyze_site(lead["website"])
+        apply_score(lead)
         save(leads)
-        return JSONResponse({"ok": True, "lead": lead, "siteInsights": lead["siteInsights"]})
+        return JSONResponse(
+            {
+                "ok": True,
+                "lead": lead,
+                "siteInsights": lead["siteInsights"],
+                "score": lead.get("score"),
+            }
+        )
     except Exception as err:
         return JSONResponse({"error": str(err)}, status_code=400)
 
@@ -357,6 +400,8 @@ async def api_lead_update(key: str, request: Request):
         lead["personalizedHook"] = body["personalizedHook"].strip()
     if isinstance(body.get("notes"), str):
         lead["notes"] = body["notes"].strip()
+    if "replied" in body:
+        lead["repliedAt"] = datetime.now().isoformat() if body["replied"] else None
     save(leads)
     return JSONResponse({"ok": True, "lead": lead})
 
@@ -407,7 +452,55 @@ def send_page():
     approved_count = sum(
         1 for l in leads if l.get("status") == "approved" and not l.get("sentAt")
     )
-    return render("send.html", approvedCount=approved_count, active="send")
+    followup_count = len(followup_candidates(leads))
+    return render(
+        "send.html",
+        approvedCount=approved_count,
+        followupCount=followup_count,
+        active="send",
+    )
+
+
+@app.post("/api/followup")
+async def api_followup(request: Request):
+    body = await request.json()
+    opts = {}
+    if body.get("limit"):
+        try:
+            n = int(body["limit"])
+            if n > 0:
+                opts["limit"] = n
+        except (TypeError, ValueError):
+            pass
+
+    def work(on_progress):
+        send_followups(on_progress=on_progress, **opts)
+
+    job = jobs_mod.run_job(work)
+    return JSONResponse({"jobId": job.id})
+
+
+@app.post("/api/rescore")
+async def api_rescore():
+    def work(on_progress):
+        leads = load()
+        targets = [l for l in leads if l.get("siteInsights")]
+        on_progress(
+            {"type": "log", "message": f"Recalculando score de {len(targets)} leads com scan…"}
+        )
+        for l in targets:
+            apply_score(l)
+        save(leads)
+        on_progress(
+            {
+                "type": "done",
+                "message": f"{len(targets)} leads pontuados.",
+                "scored": len(targets),
+            }
+        )
+
+    job = jobs_mod.run_job(work)
+    return JSONResponse({"jobId": job.id})
 
 
 @app.post("/api/send")
@@ -461,6 +554,85 @@ def job_stream(job_id: str):
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
     )
+
+
+# ---------------------------------------------------------------- webhooks
+@app.post("/webhooks/resend")
+async def resend_webhook(request: Request):
+    raw = await request.body()
+    if not verify_signature(request.headers, raw):
+        return JSONResponse({"error": "assinatura inválida"}, status_code=401)
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except Exception:
+        return JSONResponse({"error": "payload inválido"}, status_code=400)
+    summary = process_event(payload)
+    return JSONResponse({"ok": True, "handled": summary})
+
+
+# ---------------------------------------------------------------- unsubscribe
+@app.get("/unsubscribe")
+def unsubscribe_get(e: str = "", t: str = ""):
+    if not e or not verify_token(e, t):
+        return HTMLResponse(
+            env.get_template("unsubscribe.html").render(
+                email=e, token=t, done=False, valid=False, show_nav=False
+            ),
+            status_code=400,
+        )
+    return render(
+        "unsubscribe.html", email=e, token=t, done=False, valid=True, show_nav=False
+    )
+
+
+def _do_unsubscribe(email):
+    add_suppression(email, reason="unsubscribe")
+    leads = load()
+    changed = False
+    for l in leads:
+        if (l.get("email") or "").strip().lower() == email.strip().lower():
+            l["unsubscribedAt"] = datetime.now().isoformat()
+            l["status"] = "rejected"
+            changed = True
+    if changed:
+        save(leads)
+
+
+@app.post("/unsubscribe")
+async def unsubscribe_post(request: Request):
+    # Suporta one-click (List-Unsubscribe-Post) e o form da página.
+    e = request.query_params.get("e", "")
+    t = request.query_params.get("t", "")
+    if not (e and t):
+        try:
+            form = await request.form()
+            e = e or form.get("e", "")
+            t = t or form.get("t", "")
+        except Exception:
+            pass
+    if not e or not verify_token(e, t):
+        return JSONResponse({"error": "link inválido"}, status_code=400)
+    _do_unsubscribe(e)
+    return render(
+        "unsubscribe.html", email=e, token=t, done=True, valid=True, show_nav=False
+    )
+
+
+# ---------------------------------------------------------------- suppressions
+@app.get("/suppressions")
+def suppressions_page():
+    return render("suppressions.html", suppressions=list_suppressions(), active="")
+
+
+@app.post("/api/suppressions")
+async def api_add_suppression(request: Request):
+    body = await request.json()
+    email = (body.get("email") or "").strip().lower()
+    if not email or "@" not in email:
+        return JSONResponse({"error": "email inválido"}, status_code=400)
+    add_suppression(email, reason=body.get("reason") or "manual")
+    _do_unsubscribe(email)
+    return JSONResponse({"ok": True})
 
 
 if __name__ == "__main__":

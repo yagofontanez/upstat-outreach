@@ -1,0 +1,24 @@
+[Unit]
+Description=UpStat Outreach (FastAPI)
+After=network.target
+
+[Service]
+Type=simple
+User=upstat
+Group=upstat
+WorkingDirectory=/opt/upstat-outreach/python
+# 1 worker é obrigatório: os jobs e o streaming SSE vivem na memória do processo.
+ExecStart=/opt/upstat-outreach/python/.venv/bin/uvicorn app:app --host 127.0.0.1 --port 8000 --workers 1
+Restart=always
+RestartSec=3
+# Cache dos browsers do Playwright num caminho fixo e acessível ao serviço.
+Environment=PLAYWRIGHT_BROWSERS_PATH=/opt/upstat-outreach/.playwright
+
+# Hardening básico
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/opt/upstat-outreach
+
+[Install]
+WantedBy=multi-user.target

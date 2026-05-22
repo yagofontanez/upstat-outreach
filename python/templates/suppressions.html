@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}supressões · upstat outreach{% endblock %}
+{% block content %}
+<header class="page-head">
+  <a href="/send" class="back-link">← send</a>
+  <span class="eyebrow">compliance ▸ supressões</span>
+  <h1>lista de supressão.</h1>
+  <p>endereços que nunca devem receber email: descadastros, bounces e reclamações de spam. o envio e os follow-ups pulam todos eles automaticamente. <strong>{{ suppressions|length }}</strong> no total.</p>
+</header>
+
+<form id="suppression-form" class="panel" style="margin-bottom: var(--s-5);">
+  <div class="panel-head">▸ adicionar manualmente</div>
+  <div class="form-grid">
+    <div class="field">
+      <label>email</label>
+      <input name="email" type="email" placeholder="contato@exemplo.com.br" required>
+      <span class="hint">também marca o lead correspondente como descartado.</span>
+    </div>
+    <button type="submit" class="btn btn-primary" style="justify-content:center;">suprimir</button>
+    <p id="suppression-status" class="form-status"></p>
+  </div>
+</form>
+
+{% if suppressions|length == 0 %}
+  <div class="empty">
+    <h3>nenhuma supressão ainda.</h3>
+    <p>bounces e reclamações entram aqui automaticamente via webhook.</p>
+  </div>
+{% else %}
+  <table class="leads-table">
+    <thead>
+      <tr><th>email</th><th>motivo</th><th>desde</th></tr>
+    </thead>
+    <tbody>
+      {% for s in suppressions %}
+        <tr>
+          <td><span class="mono">{{ s.email }}</span></td>
+          <td><span class="meta" style="margin:0;">{{ s.reason }}</span></td>
+          <td><span class="meta" style="margin:0;">{{ s.created_at | datetimebr }}</span></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endif %}
+{% endblock %}

@@ -1620,3 +1620,27 @@ input[type=checkbox]:checked::after {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- lead pain score chip (added by Python migration) ---- */
+.score-chip {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+.score-chip.score-hot {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.score-chip.score-warm {
+  color: var(--warn);
+  border-color: var(--warn);
+}
+.score-chip.score-cold {
+  color: var(--text-dim);
+}

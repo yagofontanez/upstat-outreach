@@ -15,6 +15,10 @@ _db = sqlite3.connect(str(DB_FILE), check_same_thread=False)
 _db.row_factory = sqlite3.Row
 _lock = threading.Lock()
 
+# WAL: leituras não bloqueiam escritas; mais seguro com web + webhook concorrentes.
+_db.execute("PRAGMA journal_mode=WAL")
+_db.execute("PRAGMA busy_timeout=5000")
+
 _db.executescript(
     """
     CREATE TABLE IF NOT EXISTS leads (
@@ -34,6 +38,12 @@ _db.executescript(
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS suppressions (
+      email TEXT PRIMARY KEY,
+      reason TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     """
 )
@@ -137,3 +147,41 @@ def set_setting(key, value):
             (key, str(value)),
         )
         _db.commit()
+
+
+# ---------------------------------------------------------------- suppressions
+def add_suppression(email, reason="unsubscribe"):
+    email = (email or "").strip().lower()
+    if not email:
+        return
+    with _lock:
+        _db.execute(
+            """
+            INSERT INTO suppressions (email, reason, created_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(email) DO UPDATE SET
+              reason = excluded.reason,
+              created_at = CURRENT_TIMESTAMP
+            """,
+            (email, reason),
+        )
+        _db.commit()
+
+
+def is_suppressed(email):
+    email = (email or "").strip().lower()
+    if not email:
+        return False
+    with _lock:
+        row = _db.execute(
+            "SELECT 1 FROM suppressions WHERE email = ?", (email,)
+        ).fetchone()
+    return row is not None
+
+
+def list_suppressions():
+    with _lock:
+        rows = _db.execute(
+            "SELECT email, reason, created_at FROM suppressions ORDER BY created_at DESC"
+        ).fetchall()
+    return [dict(r) for r in rows]

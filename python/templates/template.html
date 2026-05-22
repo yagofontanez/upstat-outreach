@@ -41,4 +41,49 @@
     <pre id="template-preview-text" class="email-preview-text hidden"></pre>
   </aside>
 </div>
+
+<header class="page-head" style="margin-top: var(--s-7);">
+  <span class="eyebrow">03b ▸ follow-up</span>
+  <h1>edit the follow-up.</h1>
+  <p>enviado automaticamente <span class="mono">N</span> dias após o primeiro email, só pra quem não respondeu nem descadastrou. mesmas variáveis — inclua <span class="mono">{% raw %}{{unsubscribeUrl}}{% endraw %}</span> pra um link de descadastro.</p>
+</header>
+
+<div class="template-grid">
+  <form id="followup-form" class="panel template-editor">
+    <div class="panel-head">▸ follow-up template</div>
+    <div class="form-grid">
+      <div class="field">
+        <label>subject</label>
+        <input name="subject" type="text" value="{{ followup.subject }}" required>
+      </div>
+      <div class="field">
+        <label>delay (dias após o 1º email)</label>
+        <input name="delay_days" type="number" min="1" value="{{ followup.delay_days }}" required>
+      </div>
+      <div class="field">
+        <label>body</label>
+        <textarea name="body" rows="14" required>{{ followup.body }}</textarea>
+      </div>
+      <div class="template-actions">
+        <button type="button" class="btn btn-ghost" id="followup-preview-btn">preview</button>
+        <button type="submit" class="btn btn-primary">save follow-up</button>
+      </div>
+      <p id="followup-status" class="form-status"></p>
+    </div>
+  </form>
+
+  <aside class="panel email-preview-panel">
+    <div class="panel-head">▸ preview</div>
+    <div class="email-preview-meta">
+      <span class="k">subject</span>
+      <strong id="followup-preview-subject">—</strong>
+    </div>
+    <div class="email-preview-tabs">
+      <button type="button" class="active" data-followup-preview-tab="html">html</button>
+      <button type="button" data-followup-preview-tab="text">text</button>
+    </div>
+    <div id="followup-preview-html" class="email-preview-html"></div>
+    <pre id="followup-preview-text" class="email-preview-text hidden"></pre>
+  </aside>
+</div>
 {% endblock %}

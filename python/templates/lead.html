@@ -126,14 +126,46 @@
       </section>
 
       <section class="panel">
+        <div class="panel-head"><span>▸ pain score</span></div>
+        {% if lead.score %}
+          <div class="email-preview-meta">
+            <span class="k">score</span>
+            <strong>{{ lead.score }} / 100 · {{ score_label(lead.score) }}</strong>
+          </div>
+          {% if lead.scoreReasons %}
+            <div class="chips" style="margin-top: var(--s-3);">
+              {% for r in lead.scoreReasons %}<span>{{ r }}</span>{% endfor %}
+            </div>
+          {% endif %}
+        {% else %}
+          <p class="muted">sem score — rode um scan do site na seção acima.</p>
+        {% endif %}
+      </section>
+
+      <section class="panel">
         <div class="panel-head"><span>▸ events</span></div>
         <div class="timeline">
           <div><span>collected</span><strong>{{ lead.searchedAs or 'unknown source' }}</strong></div>
           {% if lead.personalizedAt %}<div><span>personalized</span><strong>{{ lead.personalizedAt | datetimebr }}</strong></div>{% endif %}
           {% if lead.sentAt %}<div><span>sent</span><strong>{{ lead.sentAt | datetimebr }}</strong></div>{% endif %}
+          {% if lead.deliveredAt %}<div><span>delivered</span><strong>{{ lead.deliveredAt | datetimebr }}</strong></div>{% endif %}
+          {% if lead.openedAt %}<div><span>opened</span><strong>{{ lead.openedAt | datetimebr }}{% if lead.openCount and lead.openCount > 1 %} ({{ lead.openCount }}×){% endif %}</strong></div>{% endif %}
+          {% if lead.clickedAt %}<div><span>clicked</span><strong>{{ lead.clickedAt | datetimebr }}{% if lead.clickCount and lead.clickCount > 1 %} ({{ lead.clickCount }}×){% endif %}</strong></div>{% endif %}
+          {% if lead.followupAt %}<div><span>follow-up</span><strong>{{ lead.followupAt | datetimebr }}</strong></div>{% endif %}
+          {% if lead.repliedAt %}<div><span>replied</span><strong>{{ lead.repliedAt | datetimebr }}</strong></div>{% endif %}
+          {% if lead.bouncedAt %}<div><span>bounced</span><strong>{{ lead.bouncedAt | datetimebr }} ({{ lead.bounceType or 'bounce' }})</strong></div>{% endif %}
+          {% if lead.complainedAt %}<div><span>complained</span><strong>{{ lead.complainedAt | datetimebr }}</strong></div>{% endif %}
+          {% if lead.unsubscribedAt %}<div><span>unsubscribed</span><strong>{{ lead.unsubscribedAt | datetimebr }}</strong></div>{% endif %}
           {% if lead.resendId %}<div><span>resend id</span><strong>{{ lead.resendId }}</strong></div>{% endif %}
           {% if lead.lastError %}<div><span>last error</span><strong>{{ lead.lastError }}</strong></div>{% endif %}
         </div>
+        {% if lead.sentAt %}
+          <button type="button" class="btn btn-sm" id="toggle-replied" style="margin-top: var(--s-3);"
+                  data-replied="{{ '1' if lead.repliedAt else '0' }}">
+            {{ 'unmark replied' if lead.repliedAt else 'mark as replied' }}
+          </button>
+          <p id="replied-status" class="form-status"></p>
+        {% endif %}
       </section>
 
       <section class="panel">

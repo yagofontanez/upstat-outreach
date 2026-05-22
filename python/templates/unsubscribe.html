@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}descadastro · upstat{% endblock %}
+{% block content %}
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="brand-mark">upstat</div>
+    {% if not valid %}
+      <div class="tagline">link inválido ou expirado</div>
+      <p class="footer-note">Não foi possível validar este pedido de descadastro. Se quiser sair da lista, responda ao email com "remover" no assunto.</p>
+    {% elif done %}
+      <div class="tagline">pronto — você saiu da lista</div>
+      <p class="prompt" style="margin-top:16px;">{{ email }}</p>
+      <p class="footer-note">// não enviaremos mais nada para este endereço.</p>
+    {% else %}
+      <div class="tagline">confirmar descadastro</div>
+      <p class="prompt" style="margin-top:16px;">{{ email }}</p>
+      <form method="post" action="/unsubscribe?e={{ email | urlencode }}&t={{ token | urlencode }}">
+        <button type="submit" class="btn btn-primary">não quero mais receber</button>
+      </form>
+      <p class="footer-note">// removemos seu email da lista imediatamente.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

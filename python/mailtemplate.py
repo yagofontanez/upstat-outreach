@@ -55,11 +55,57 @@ def _escape_html(s):
     return re.sub(r"[&<>\"']", lambda c: _HTML_ESCAPES[c.group(0)], str(s))
 
 
+DEFAULT_FOLLOWUP = {
+    "subject": "re: monitoramento de uptime pra {{company}}",
+    "body": """{{opening}}
+
+Só subindo esse email pra não passar despercebido — sei como a caixa de entrada lota.
+
+Resumindo em uma linha: o UpStat avisa em segundos quando o site de vocês (ou de um cliente) cai ou fica lento, com página de status pública pra mostrar pro cliente. Plano grátis, sem cartão: {{url}}
+
+Se não fizer sentido, sem problema — é só ignorar.
+
+Abraço,
+Yago
+
+---
+Não quer mais receber? {{unsubscribeUrl}}""",
+    "delay_days": 4,
+}
+
+
 def get_email_template():
     return {
         "subject": get_setting("email_template_subject", DEFAULT_TEMPLATE["subject"]),
         "body": get_setting("email_template_body", DEFAULT_TEMPLATE["body"]),
     }
+
+
+def get_followup_template():
+    return {
+        "subject": get_setting("followup_subject", DEFAULT_FOLLOWUP["subject"]),
+        "body": get_setting("followup_body", DEFAULT_FOLLOWUP["body"]),
+        "delay_days": int(get_setting("followup_delay_days", DEFAULT_FOLLOWUP["delay_days"])),
+    }
+
+
+def save_followup_template(subject, body, delay_days):
+    clean_subject = str(subject or "").strip()
+    clean_body = str(body or "").strip()
+    if not clean_subject:
+        raise ValueError("subject do follow-up não pode ficar vazio")
+    if not clean_body:
+        raise ValueError("body do follow-up não pode ficar vazio")
+    try:
+        days = int(delay_days)
+    except (TypeError, ValueError):
+        raise ValueError("delay_days precisa ser um número")
+    if days < 1:
+        raise ValueError("delay_days precisa ser >= 1")
+    set_setting("followup_subject", clean_subject)
+    set_setting("followup_body", clean_body)
+    set_setting("followup_delay_days", days)
+    return get_followup_template()
 
 
 def save_email_template(subject, body):
@@ -94,18 +140,19 @@ def _format_pain_signals(site_insights):
     return ", ".join(s["label"] for s in signals[:3])
 
 
-def build_email(name, reply_to, personalized_hook=None, site_insights=None):
+def build_email(name, reply_to, personalized_hook=None, site_insights=None, unsubscribe_url=""):
     return build_email_with_template(
         get_email_template(),
         name=name,
         reply_to=reply_to,
         personalized_hook=personalized_hook,
         site_insights=site_insights,
+        unsubscribe_url=unsubscribe_url,
     )
 
 
 def build_email_with_template(
-    template, name, reply_to, personalized_hook=None, site_insights=None
+    template, name, reply_to, personalized_hook=None, site_insights=None, unsubscribe_url=""
 ):
     clean_name = _clean_company_name(name)
     subject = _render_template(
@@ -128,6 +175,7 @@ def build_email_with_template(
             "stack": _format_stack(site_insights),
             "painSignals": _format_pain_signals(site_insights),
             "url": UPSTAT_URL,
+            "unsubscribeUrl": unsubscribe_url or "",
         },
     )
 

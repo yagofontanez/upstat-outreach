@@ -37,7 +37,23 @@
     </div>
     <button type="submit" class="btn btn-primary">dispatch</button>
   </form>
+
+  <form id="followup-form" class="dispatch-card">
+    <div class="head">
+      <h3>follow-up <span class="mono" style="color:var(--text-dim);font-size:12px;">{{ followupCount }} due</span></h3>
+      <p class="sub">re-engage leads that were sent but didn't reply, past the configured delay. skips replies, bounces and unsubscribes.</p>
+    </div>
+    <div class="field">
+      <label>batch limit</label>
+      <input name="limit" type="number" min="1" placeholder="empty = all due">
+    </div>
+    <button type="submit" class="btn"{% if followupCount == 0 %} disabled{% endif %}>send follow-ups</button>
+  </form>
 </div>
+
+<p style="margin-top: var(--s-4);">
+  <a href="/suppressions" class="mono" style="color:var(--text-dim);font-size:12px;">→ manage suppression list</a>
+</p>
 
 <div id="progress" class="terminal hidden" style="margin-top: var(--s-6);">
   <div class="terminal-head">

@@ -3,6 +3,7 @@
 Usa a API síncrona do Playwright para manter a lógica próxima do original.
 """
 
+import os
 import random
 import time
 from urllib.parse import quote, urlparse
@@ -10,6 +11,11 @@ from urllib.parse import quote, urlparse
 from playwright.sync_api import sync_playwright
 
 from progress import console_progress
+
+
+def _headless():
+    """Headless por padrão (servidor sem display). SCRAPER_HEADFUL=1 mostra a janela em dev."""
+    return os.environ.get("SCRAPER_HEADFUL", "").lower() not in ("1", "true", "yes")
 
 
 def _sleep(ms):
@@ -40,7 +46,7 @@ def scrape(term, city, max=30, on_progress=console_progress):
     results = []
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
+        browser = p.chromium.launch(headless=_headless())
         ctx = browser.new_context(
             locale="pt-BR",
             viewport={"width": 1280, "height": 900},

@@ -9,8 +9,9 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.dirname(__file__)),
 
 from emails import enrich_emails
 from personalize import personalize_leads
+from scoring import apply_score
 from scraper import scrape
-from sender import send
+from sender import send, send_followups
 from state import load, save
 
 
@@ -36,6 +37,12 @@ Uso:
       Envia via Resend para os leads aprovados ainda não enviados.
       --limit N         envia só os N primeiros da fila (ex: --limit 10)
       --email <addr>    envia 1 email de TESTE pra esse endereço, sem alterar leads
+
+  python cli.py followup [--limit N]
+      Dispara o follow-up pros leads enviados que não responderam, passado o prazo.
+
+  python cli.py rescore
+      Recalcula o score de dor de todos os leads que já têm scan de site.
 """
     )
 
@@ -189,6 +196,26 @@ def main():
                 raise SystemExit("--email precisa de um endereço válido")
             opts["test_email"] = addr
         send(**opts)
+
+    elif cmd == "followup":
+        opts = {}
+        if "--limit" in rest:
+            try:
+                n = int(rest[rest.index("--limit") + 1])
+            except (ValueError, IndexError):
+                raise SystemExit("--limit precisa de um número > 0")
+            if n <= 0:
+                raise SystemExit("--limit precisa de um número > 0")
+            opts["limit"] = n
+        send_followups(**opts)
+
+    elif cmd == "rescore":
+        leads = load()
+        targets = [l for l in leads if l.get("siteInsights")]
+        for l in targets:
+            apply_score(l)
+        save(leads)
+        print(f"{len(targets)} leads pontuados.")
 
     else:
         usage()

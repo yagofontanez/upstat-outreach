@@ -576,5 +576,188 @@
         if (isInput) e.target.blur();
       }
     });
+
+    // rescore: recalcula o score de dor e recarrega a fila ordenada
+    document.getElementById("rescore-btn")?.addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      btn.textContent = "rescoring…";
+      try {
+        const res = await fetch("/api/rescore", { method: "POST" });
+        const { jobId } = await res.json();
+        const es = new EventSource(`/api/jobs/${jobId}/stream`);
+        es.onmessage = (ev) => {
+          const data = JSON.parse(ev.data);
+          if (data.type === "done" || data.type === "fatal") {
+            es.close();
+            window.location.reload();
+          }
+        };
+        es.onerror = () => {
+          es.close();
+          window.location.reload();
+        };
+      } catch {
+        btn.disabled = false;
+        btn.textContent = "rescore";
+      }
+    });
+  }
+
+  // follow-up dispatch (na página /send, reaproveita o terminal de progresso)
+  if (path === "/send") {
+    const followForm = document.getElementById("followup-form");
+    if (followForm) {
+      const progress = document.getElementById("progress");
+      const logEl = document.getElementById("send-log");
+      const summaryEl = document.getElementById("send-summary");
+      followForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const fd = new FormData(followForm);
+        const limit = fd.get("limit");
+        const body = {};
+        if (limit) body.limit = limit;
+        if (!confirm("send follow-ups to all due leads?" + (limit ? ` (max ${limit})` : ""))) return;
+        const btn = followForm.querySelector("button[type=submit]");
+        progress.classList.remove("hidden");
+        progress.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        logEl.textContent = "";
+        summaryEl.textContent = "";
+        btn.disabled = true;
+        btn.textContent = "sending…";
+        try {
+          const res = await fetch("/api/followup", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          if (!res.ok) {
+            alert("falha ao iniciar");
+            return;
+          }
+          const { jobId } = await res.json();
+          streamJob(jobId, logEl, summaryEl, progress);
+        } finally {
+          setTimeout(() => {
+            btn.disabled = false;
+            btn.textContent = "send follow-ups";
+          }, 2000);
+        }
+      });
+    }
+  }
+
+  // editor do follow-up na página /template
+  if (path === "/template") {
+    const form = document.getElementById("followup-form");
+    if (form) {
+      const status = document.getElementById("followup-status");
+      wirePreviewTabs(
+        "data-followup-preview-tab",
+        "followup-preview-html",
+        "followup-preview-text",
+      );
+
+      async function previewFollowup() {
+        const fd = new FormData(form);
+        const res = await fetch("/api/template/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ subject: fd.get("subject"), body: fd.get("body") }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "preview failed");
+        setEmailPreview("followup-preview", data.email);
+      }
+
+      document
+        .getElementById("followup-preview-btn")
+        .addEventListener("click", async () => {
+          status.textContent = "";
+          try {
+            await previewFollowup();
+          } catch (err) {
+            status.textContent = err.message;
+            status.className = "form-status fail";
+          }
+        });
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const fd = new FormData(form);
+        status.textContent = "saving…";
+        status.className = "form-status";
+        const res = await fetch("/api/followup-template", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subject: fd.get("subject"),
+            body: fd.get("body"),
+            delay_days: fd.get("delay_days"),
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          status.textContent = data.error || "save failed";
+          status.className = "form-status fail";
+          return;
+        }
+        status.textContent = "saved";
+        status.className = "form-status ok";
+        await previewFollowup().catch(() => {});
+      });
+
+      previewFollowup().catch(() => {});
+    }
+  }
+
+  // botão "marcar como respondido" no detalhe do lead
+  if (path.startsWith("/leads/")) {
+    const root = document.querySelector(".lead-layout");
+    const key = root?.dataset.leadKey;
+    const btn = document.getElementById("toggle-replied");
+    btn?.addEventListener("click", async () => {
+      const replied = btn.dataset.replied !== "1";
+      const status = document.getElementById("replied-status");
+      status.textContent = "saving…";
+      status.className = "form-status";
+      const res = await fetch(`/api/leads/${encodeURIComponent(key)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ replied }),
+      });
+      if (res.ok) {
+        status.textContent = "saved";
+        status.className = "form-status ok";
+        setTimeout(() => window.location.reload(), 500);
+      } else {
+        status.textContent = "save failed";
+        status.className = "form-status fail";
+      }
+    });
+  }
+
+  // adicionar supressão manual
+  if (path === "/suppressions") {
+    const form = document.getElementById("suppression-form");
+    form?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const status = document.getElementById("suppression-status");
+      status.textContent = "saving…";
+      status.className = "form-status";
+      const res = await fetch("/api/suppressions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: fd.get("email") }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        window.location.reload();
+      } else {
+        status.textContent = data.error || "failed";
+        status.className = "form-status fail";
+      }
+    });
   }
 })();

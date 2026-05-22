@@ -17,8 +17,9 @@
   </div>
 {% else %}
   <div class="bulk-bar">
-    <span class="count"><strong>{{ leads|length }}</strong> pending</span>
+    <span class="count"><strong>{{ leads|length }}</strong> pending · sorted by pain score</span>
     <span class="spacer"></span>
+    <button type="button" class="btn btn-sm btn-ghost" id="rescore-btn" title="recalcula score de dor dos leads com scan">rescore</button>
     <button type="button" class="btn btn-sm btn-ghost" data-bulk="approve-with-email">approve all w/ email</button>
     <button type="button" class="btn btn-sm btn-ghost" data-bulk="reject-no-email">drop all w/o email</button>
     <button type="button" class="btn btn-sm btn-danger" data-bulk="reject-selected">drop selected</button>
@@ -51,6 +52,9 @@
             <div class="meta pers-status {{ 'ok' if has_pers else 'missing' }}">
               {{ '✓ personalized' if has_pers else '○ not personalized' }}
             </div>
+            {% if lead.score %}
+              <span class="score-chip score-{{ score_label(lead.score) }}" title="{{ (lead.scoreReasons or [])|join(' · ') }}">★ {{ lead.score }} · {{ score_label(lead.score) }}</span>
+            {% endif %}
           </td>
           <td>
             <input class="email-input" type="email" value="{{ lead.email or '' }}" placeholder="(empty)">
