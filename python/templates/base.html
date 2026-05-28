@@ -23,14 +23,28 @@
       <a href="/clients" class="{{ 'active' if active == 'clients' else '' }}">Clientes</a>
     </nav>
     {% if all_clients and all_clients|length > 1 %}
-    <form action="/switch-client" method="post" class="client-switcher">
-      <label for="client-switch-select" class="visually-hidden">trocar cliente</label>
-      <select id="client-switch-select" name="client_id" onchange="this.form.submit()">
+    <details class="client-switcher" id="client-switcher">
+      <summary aria-haspopup="listbox" aria-label="trocar cliente">
+        <span class="cs-pre">▎</span>
+        <span class="cs-name">{{ active_client.name }}</span>
+        <span class="cs-locale">{{ active_client.locale }}</span>
+        <span class="cs-chevron" aria-hidden="true">▾</span>
+      </summary>
+      <div class="cs-menu" role="listbox">
+        <div class="cs-menu-head">switch saas</div>
         {% for c in all_clients %}
-          <option value="{{ c.id }}" {% if active_client and c.id == active_client.id %}selected{% endif %}>{{ c.name }}</option>
+        <form action="/switch-client" method="post" class="cs-form">
+          <input type="hidden" name="client_id" value="{{ c.id }}">
+          <button type="submit" class="cs-item {% if active_client and c.id == active_client.id %}is-active{% endif %}" role="option" {% if active_client and c.id == active_client.id %}aria-selected="true"{% endif %}>
+            <span class="cs-item-mark">{% if active_client and c.id == active_client.id %}●{% else %}○{% endif %}</span>
+            <span class="cs-item-name">{{ c.name }}</span>
+            <span class="cs-item-locale">{{ c.locale }}</span>
+          </button>
+        </form>
         {% endfor %}
-      </select>
-    </form>
+        <a href="/clients" class="cs-menu-foot bare">manage clients →</a>
+      </div>
+    </details>
     {% endif %}
     <form action="/logout" method="post" class="logout">
       <button type="submit">⏻ exit</button>

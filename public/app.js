@@ -1,6 +1,21 @@
 (() => {
   const path = window.location.pathname;
 
+  // Fecha o dropdown do client-switcher quando o usuário clica fora ou aperta Esc.
+  const clientSwitcher = document.getElementById("client-switcher");
+  if (clientSwitcher) {
+    document.addEventListener("click", (e) => {
+      if (clientSwitcher.open && !clientSwitcher.contains(e.target)) {
+        clientSwitcher.open = false;
+      }
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && clientSwitcher.open) {
+        clientSwitcher.open = false;
+      }
+    });
+  }
+
   function escapeHtml(s) {
     return String(s).replace(
       /[&<>"']/g,
