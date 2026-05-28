@@ -1644,3 +1644,122 @@ input[type=checkbox]:checked::after {
 .score-chip.score-cold {
   color: var(--text-dim);
 }
+
+/* ──────── client switcher (topbar) ──────── */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.topbar .client-switcher { margin-left: auto; }
+.topbar .logout { margin-left: var(--s-3); }
+.topbar .client-switcher select {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: border-color 140ms;
+}
+.topbar .client-switcher select:hover {
+  border-color: var(--border-bright);
+}
+.topbar .client-switcher select:focus {
+  outline: 0;
+  border-color: var(--accent);
+}
+
+/* ──────── presets list (scrape page) ──────── */
+.saved-presets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin-bottom: var(--s-4);
+}
+.saved-preset {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.saved-preset .label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.saved-preset .label strong { font-size: 14px; color: var(--text); }
+.saved-preset .label .meta {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.saved-preset button {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  padding: 6px 12px;
+  border: 1px solid var(--border-bright);
+  background: transparent;
+  color: var(--text);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.saved-preset button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ──────── clients/presets table-like layout ──────── */
+.config-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.config-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.config-row h3 { margin: 0 0 4px; font-size: 16px; }
+.config-row .meta {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.config-row .actions {
+  display: flex;
+  gap: var(--s-2);
+  align-items: flex-start;
+}
+.danger-btn {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.danger-btn:hover { border-color: var(--danger); color: var(--danger); }

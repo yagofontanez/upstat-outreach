@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}clientes · outreach{% endblock %}
+{% block content %}
+<header class="page-head">
+  <span class="eyebrow">⚙ ▸ clients</span>
+  <h1>clientes (SaaS).</h1>
+  <p>cada cliente é um SaaS seu (UpStat, MartinsAdviser…). filas de leads, templates e supressões são separadas por cliente. credenciais do Resend são configuradas aqui — se em branco, o app cai pro <span class="mono">.env</span>.</p>
+</header>
+
+<section class="section">
+  <div class="section-head"><span class="num">01 ▸ cadastrados</span><h2>existentes</h2></div>
+  <div class="config-list">
+    {% for c in clients %}
+    <div class="config-row" data-client-id="{{ c.id }}">
+      <div>
+        <h3>{{ c.name }} {% if c.is_default %}<span class="mono" style="font-size:11px;color:var(--accent);margin-left:8px;">DEFAULT</span>{% endif %}</h3>
+        <div class="meta">
+          id: <strong>{{ c.id }}</strong> · locale: <strong>{{ c.locale }}</strong> · url: <a href="{{ c.url }}" target="_blank" rel="noopener" class="bare" style="color:var(--text);">{{ c.url }}</a>
+        </div>
+        <form class="client-edit-form" data-client-id="{{ c.id }}" style="margin-top: var(--s-3); display:grid; gap: var(--s-2);">
+          <div class="field"><label>name</label><input name="name" value="{{ c.name }}" required></div>
+          <div class="field"><label>url</label><input name="url" value="{{ c.url }}" required></div>
+          <div class="field"><label>locale</label>
+            <select name="locale">
+              <option value="pt-BR" {% if c.locale == 'pt-BR' %}selected{% endif %}>pt-BR</option>
+              <option value="en-US" {% if c.locale == 'en-US' %}selected{% endif %}>en-US</option>
+            </select>
+          </div>
+          <div class="field"><label>resend_api_key</label>
+            <input name="resend_api_key" type="password" autocomplete="new-password" value="{{ c.resend_api_key }}" placeholder="{% if c.resend_api_key %}(salvo){% else %}re_…{% endif %}">
+          </div>
+          <div class="field"><label>from_email</label>
+            <input name="from_email" value="{{ c.from_email }}" placeholder="Yago &lt;yago@{{ c.id }}.com&gt;">
+          </div>
+          <div class="field"><label>reply_to</label>
+            <input name="reply_to" value="{{ c.reply_to }}" placeholder="opcional">
+          </div>
+          <div class="field">
+            <label><input type="checkbox" name="is_default" {% if c.is_default %}checked{% endif %}> default (UI abre nesse cliente)</label>
+          </div>
+          <div class="template-actions">
+            <button type="submit" class="btn btn-primary">salvar</button>
+            <span class="form-status"></span>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="section" style="margin-top: var(--s-7);">
+  <div class="section-head"><span class="num">02 ▸ novo cliente</span><h2>cadastrar outro SaaS</h2></div>
+  <form id="new-client-form" class="panel" style="padding: var(--s-4); display:grid; gap: var(--s-3);">
+    <div class="field"><label>id (slug — minúsculo, sem espaço)</label>
+      <input name="id" required placeholder="ex: meusaas3"></div>
+    <div class="field"><label>name</label><input name="name" required placeholder="ex: MeuSaaS"></div>
+    <div class="field"><label>url</label>
+      <input name="url" required placeholder="https://meusaas.com/?utm_source=outreach"></div>
+    <div class="field"><label>locale</label>
+      <select name="locale">
+        <option value="pt-BR">pt-BR</option>
+        <option value="en-US">en-US</option>
+      </select>
+    </div>
+    <div class="field"><label>resend_api_key</label>
+      <input name="resend_api_key" type="password" autocomplete="new-password" placeholder="re_…"></div>
+    <div class="field"><label>from_email</label>
+      <input name="from_email" placeholder="Nome &lt;contato@meusaas.com&gt;"></div>
+    <div class="field"><label>reply_to</label>
+      <input name="reply_to" placeholder="opcional"></div>
+    <div class="template-actions">
+      <button type="submit" class="btn btn-primary">cadastrar</button>
+      <span class="form-status" id="new-client-status"></span>
+    </div>
+  </form>
+</section>
+
+<script>
+document.querySelectorAll(".client-edit-form").forEach((form) => {
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const id = form.dataset.clientId;
+    const fd = new FormData(form);
+    const body = {
+      name: fd.get("name"),
+      url: fd.get("url"),
+      locale: fd.get("locale"),
+      from_email: fd.get("from_email"),
+      reply_to: fd.get("reply_to"),
+      is_default: fd.get("is_default") === "on",
+    };
+    const apiKey = fd.get("resend_api_key");
+    if (apiKey) body.resend_api_key = apiKey;
+    const status = form.querySelector(".form-status");
+    status.textContent = "salvando…";
+    try {
+      const res = await fetch(`/api/clients/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        status.textContent = data.error || "erro";
+        return;
+      }
+      status.textContent = "salvo ✓ — recarregando…";
+      setTimeout(() => window.location.reload(), 600);
+    } catch (err) {
+      status.textContent = err.message;
+    }
+  });
+});
+
+const newForm = document.getElementById("new-client-form");
+if (newForm) {
+  newForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const fd = new FormData(newForm);
+    const body = Object.fromEntries(fd.entries());
+    const status = document.getElementById("new-client-status");
+    status.textContent = "criando…";
+    try {
+      const res = await fetch("/api/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        status.textContent = data.error || "erro";
+        return;
+      }
+      status.textContent = "criado ✓ — recarregando…";
+      setTimeout(() => window.location.reload(), 600);
+    } catch (err) {
+      status.textContent = err.message;
+    }
+  });
+}
+</script>
+{% endblock %}

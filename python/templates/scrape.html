@@ -1,11 +1,28 @@
 {% extends "base.html" %}
-{% block title %}scrape · upstat outreach{% endblock %}
+{% block title %}scrape · {{ active_client.name|lower }} outreach{% endblock %}
 {% block content %}
 <header class="page-head">
-  <span class="eyebrow">01 ▸ collect</span>
+  <span class="eyebrow">01 ▸ collect · {{ active_client.name }}</span>
   <h1>scrape the map.</h1>
-  <p>opens chromium (visible) and walks the result list. takes a few minutes per batch. results merge into <span class="mono">outreach.sqlite</span> by website — duplicates dedupe automatically.</p>
+  <p>opens chromium (visible) and walks the result list. takes a few minutes per batch. results merge into <span class="mono">outreach.sqlite</span> for <strong>{{ active_client.name }}</strong> only — switching clients keeps the queues separate.</p>
 </header>
+
+{% if presets %}
+<section class="panel" style="margin-bottom: var(--s-5);">
+  <div class="panel-head"><span>▸ saved presets</span><span class="panel-tag">1-click run</span></div>
+  <div class="saved-presets" style="padding: var(--s-4);">
+    {% for p in presets %}
+    <div class="saved-preset" data-preset-id="{{ p.id }}">
+      <div class="label">
+        <strong>{{ p.label }}</strong>
+        <span class="meta">{{ p.term }} · {{ p.cities|length }} {{ 'cities' if active_client.locale.startswith('en') else 'cidades' }} · max {{ p.max_results }}/cidade</span>
+      </div>
+      <button type="button" class="preset-run-btn" data-preset-id="{{ p.id }}">run</button>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
 
 <div class="split">
   <form id="scrape-form" class="panel scrape-panel">

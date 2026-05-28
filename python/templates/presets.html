@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}presets · {{ active_client.name|lower }} outreach{% endblock %}
+{% block content %}
+<header class="page-head">
+  <span class="eyebrow">⚙ ▸ search presets · {{ active_client.name }}</span>
+  <h1>presets de busca.</h1>
+  <p>cada preset é uma lista de cidades pra rodar com o mesmo termo. clique <strong>run</strong> em qualquer preset na tela <a href="/scrape" class="bare" style="color:var(--text);text-decoration:underline;">/scrape</a> pra disparar — itera as cidades e dedupa por website.</p>
+</header>
+
+<section class="section">
+  <div class="section-head"><span class="num">01 ▸ existentes</span><h2>presets cadastrados</h2></div>
+  <div class="config-list">
+    {% for p in presets %}
+    <div class="config-row" data-preset-id="{{ p.id }}">
+      <div>
+        <h3>{{ p.label }}</h3>
+        <div class="meta">term: <strong>{{ p.term }}</strong> · cidades: {{ p.cities|join(', ') }} · max {{ p.max_results }}/cidade</div>
+      </div>
+      <div class="actions">
+        <button type="button" class="danger-btn" data-delete-preset="{{ p.id }}">remover</button>
+      </div>
+    </div>
+    {% else %}
+    <p class="muted">nenhum preset cadastrado pro {{ active_client.name }}. crie um abaixo.</p>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="section" style="margin-top: var(--s-7);">
+  <div class="section-head"><span class="num">02 ▸ novo preset</span><h2>cadastrar preset</h2></div>
+  <form id="new-preset-form" class="panel" style="padding: var(--s-4); display:grid; gap: var(--s-3);">
+    <div class="field"><label>label (nome amigável)</label>
+      <input name="label" required placeholder="ex: trucking — TX hub"></div>
+    <div class="field"><label>term (consulta no Maps)</label>
+      <input name="term" required placeholder="{% if active_client.locale.startswith('en') %}trucking company{% else %}agência de marketing{% endif %}"></div>
+    <div class="field"><label>cidades (uma por linha, ou separadas por vírgula)</label>
+      <textarea name="cities" rows="4" required placeholder="{% if active_client.locale.startswith('en') %}Houston, TX&#10;Dallas, TX{% else %}São Paulo&#10;Curitiba{% endif %}"></textarea></div>
+    <div class="field"><label>max results por cidade</label>
+      <input name="max_results" type="number" min="1" max="100" value="30"></div>
+    <div class="template-actions">
+      <button type="submit" class="btn btn-primary">cadastrar</button>
+      <span class="form-status" id="new-preset-status"></span>
+    </div>
+  </form>
+</section>
+
+<script>
+document.querySelectorAll("[data-delete-preset]").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    if (!confirm("remover este preset?")) return;
+    const id = btn.dataset.deletePreset;
+    const res = await fetch(`/api/presets/${id}/delete`, { method: "POST" });
+    if (res.ok) window.location.reload();
+    else alert("falhou");
+  });
+});
+
+const form = document.getElementById("new-preset-form");
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const fd = new FormData(form);
+  const body = {
+    label: fd.get("label"),
+    term: fd.get("term"),
+    cities: fd.get("cities"),
+    max_results: fd.get("max_results"),
+  };
+  const status = document.getElementById("new-preset-status");
+  status.textContent = "criando…";
+  try {
+    const res = await fetch("/api/presets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      status.textContent = data.error || "erro";
+      return;
+    }
+    status.textContent = "criado ✓ — recarregando…";
+    setTimeout(() => window.location.reload(), 600);
+  } catch (err) {
+    status.textContent = err.message;
+  }
+});
+</script>
+{% endblock %}

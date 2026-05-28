@@ -15,6 +15,7 @@ leads.backup.json
 leads.*.json
 outreach.sqlite
 outreach.sqlite-*
+outreach.sqlite.*
 
 # logs
 *.log
@@ -26,6 +27,9 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# claude code (interno do harness, não pertence ao repo)
+.claude/
 
 # playwright (caches/test artifacts, se aparecerem)
 test-results/

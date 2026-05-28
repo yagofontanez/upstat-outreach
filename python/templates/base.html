@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>{% block title %}upstat / outreach{% endblock %}</title>
+  <title>{% block title %}outreach{% endblock %}</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,14 +12,26 @@
 <body>
   {% if show_nav|default(true) %}
   <header class="topbar">
-    <a class="brand bare" href="/">upstat</a>
+    <a class="brand bare" href="/">{{ active_client.name|lower if active_client else 'outreach' }}</a>
     <nav>
       <a href="/scrape" class="{{ 'active' if active == 'scrape' else '' }}">Scrape</a>
       <a href="/personalize" class="{{ 'active' if active == 'personalize' else '' }}">Personalize</a>
       <a href="/review" class="{{ 'active' if active == 'review' else '' }}">Review</a>
       <a href="/template" class="{{ 'active' if active == 'template' else '' }}">Template</a>
       <a href="/send" class="{{ 'active' if active == 'send' else '' }}">Send</a>
+      <a href="/presets" class="{{ 'active' if active == 'presets' else '' }}">Presets</a>
+      <a href="/clients" class="{{ 'active' if active == 'clients' else '' }}">Clientes</a>
     </nav>
+    {% if all_clients and all_clients|length > 1 %}
+    <form action="/switch-client" method="post" class="client-switcher">
+      <label for="client-switch-select" class="visually-hidden">trocar cliente</label>
+      <select id="client-switch-select" name="client_id" onchange="this.form.submit()">
+        {% for c in all_clients %}
+          <option value="{{ c.id }}" {% if active_client and c.id == active_client.id %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </form>
+    {% endif %}
     <form action="/logout" method="post" class="logout">
       <button type="submit">⏻ exit</button>
     </form>

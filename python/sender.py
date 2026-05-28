@@ -1,4 +1,9 @@
-"""Envio via Resend — equivalente a lib/sender.js, com supressão, unsubscribe e follow-ups."""
+"""Envio via Resend, por cliente — credenciais lidas da tabela clients.
+
+Fallback: se o cliente não tiver resend_api_key/from_email salvos, o sender
+ainda aceita ler do .env (RESEND_API_KEY/FROM_EMAIL/REPLY_TO). Isso mantém o
+UpStat funcionando sem precisar migrar credenciais pra UI imediatamente.
+"""
 
 import os
 import time
@@ -26,19 +31,26 @@ def _days_since(iso):
         return 1e9
 
 
-def _env():
-    api_key = os.environ.get("RESEND_API_KEY")
-    from_email = os.environ.get("FROM_EMAIL")
-    reply_to = os.environ.get("REPLY_TO")
+def _creds(client):
+    """Resolve api_key/from_email/reply_to do cliente, com fallback no .env (legado)."""
+    api_key = (client.get("resend_api_key") or "").strip() or os.environ.get("RESEND_API_KEY")
+    from_email = (client.get("from_email") or "").strip() or os.environ.get("FROM_EMAIL")
+    reply_to = (client.get("reply_to") or "").strip() or os.environ.get("REPLY_TO") or None
     if not api_key:
-        raise RuntimeError("RESEND_API_KEY ausente no .env")
+        raise RuntimeError(
+            f"resend_api_key ausente pro cliente '{client.get('id')}'. "
+            "Configure em /clients ou no .env (RESEND_API_KEY)."
+        )
     if not from_email:
-        raise RuntimeError("FROM_EMAIL ausente no .env")
+        raise RuntimeError(
+            f"from_email ausente pro cliente '{client.get('id')}'. "
+            "Configure em /clients ou no .env (FROM_EMAIL)."
+        )
+    return api_key, from_email, reply_to
+
+
+def _send_email(client, to, api_key, from_email, reply_to, email):
     resend.api_key = api_key
-    return from_email, reply_to
-
-
-def _send_email(to, from_email, reply_to, email):
     unsub = unsubscribe_url(to)
     params = {
         "from": from_email,
@@ -46,6 +58,7 @@ def _send_email(to, from_email, reply_to, email):
         "subject": email["subject"],
         "text": email["text"],
         "html": email["html"],
+        "tags": [{"name": "client_id", "value": client["id"]}],
     }
     if reply_to:
         params["reply_to"] = reply_to
@@ -57,9 +70,9 @@ def _send_email(to, from_email, reply_to, email):
     return resend.Emails.send(params)
 
 
-def send(limit=None, test_email=None, on_progress=console_progress):
-    from_email, reply_to = _env()
-    leads = load()
+def send(client, limit=None, test_email=None, on_progress=console_progress):
+    api_key, from_email, reply_to = _creds(client)
+    leads = load(client["id"])
 
     if test_email:
         sample = next((l for l in leads if l.get("status") == "approved"), None) or (
@@ -69,18 +82,19 @@ def send(limit=None, test_email=None, on_progress=console_progress):
         on_progress(
             {
                 "type": "log",
-                "message": f'[TESTE] Enviando 1 email pra {test_email} (nome: "{sample_name}")',
+                "message": f'[TESTE · {client["name"]}] Enviando 1 email pra {test_email} (nome: "{sample_name}")',
             }
         )
         try:
             email = build_email(
+                client,
                 name=sample_name,
                 reply_to=reply_to or from_email,
                 personalized_hook=(sample or {}).get("personalizedHook"),
                 site_insights=(sample or {}).get("siteInsights"),
                 unsubscribe_url=unsubscribe_url(test_email),
             )
-            data = _send_email(test_email, from_email, reply_to, email)
+            data = _send_email(client, test_email, api_key, from_email, reply_to, email)
             on_progress(
                 {
                     "type": "item",
@@ -110,13 +124,13 @@ def send(limit=None, test_email=None, on_progress=console_progress):
     skipped = 0
     for l in leads:
         if l.get("status") == "approved" and l.get("email") and not l.get("sentAt"):
-            if is_suppressed(l["email"]):
+            if is_suppressed(client["id"], l["email"]):
                 skipped += 1
                 continue
             queue.append(l)
 
     if not queue:
-        msg = "Nada na fila."
+        msg = f"Nada na fila do {client['name']}."
         if skipped:
             msg += f" ({skipped} suprimidos ignorados)"
         on_progress({"type": "done", "message": msg, "ok": 0, "fail": 0})
@@ -132,7 +146,7 @@ def send(limit=None, test_email=None, on_progress=console_progress):
         {
             "type": "log",
             "message": (
-                f"Enviando para {len(queue)} leads{suffix} "
+                f"[{client['name']}] Enviando para {len(queue)} leads{suffix} "
                 f"(delay {int(DELAY_S)}s entre envios){skip_note}…"
             ),
         }
@@ -143,13 +157,14 @@ def send(limit=None, test_email=None, on_progress=console_progress):
     for i, lead in enumerate(queue):
         try:
             email = build_email(
+                client,
                 name=lead.get("name"),
                 reply_to=reply_to or from_email,
                 personalized_hook=lead.get("personalizedHook"),
                 site_insights=lead.get("siteInsights"),
                 unsubscribe_url=unsubscribe_url(lead.get("email")),
             )
-            data = _send_email(lead.get("email"), from_email, reply_to, email)
+            data = _send_email(client, lead.get("email"), api_key, from_email, reply_to, email)
             lead["status"] = "sent"
             lead["sentAt"] = _now()
             lead["resendId"] = data.get("id")
@@ -176,7 +191,7 @@ def send(limit=None, test_email=None, on_progress=console_progress):
                     "status": f"falhou: {e}",
                 }
             )
-        save(leads)
+        save(client["id"], leads)
         if i < len(queue) - 1:
             time.sleep(DELAY_S)
 
@@ -190,9 +205,9 @@ def send(limit=None, test_email=None, on_progress=console_progress):
     )
 
 
-def followup_candidates(leads, template=None):
+def followup_candidates(client, leads, template=None):
     """Leads elegíveis para follow-up: enviados, sem resposta/descadastro, fora do prazo."""
-    template = template or get_followup_template()
+    template = template or get_followup_template(client)
     delay = template["delay_days"]
     out = []
     for l in leads:
@@ -204,9 +219,9 @@ def followup_candidates(leads, template=None):
             continue
         if l.get("bouncedAt") or l.get("complainedAt"):
             continue
-        if l.get("followupStep"):  # já recebeu follow-up
+        if l.get("followupStep"):
             continue
-        if is_suppressed(l["email"]):
+        if is_suppressed(client["id"], l["email"]):
             continue
         if _days_since(l["sentAt"]) < delay:
             continue
@@ -214,17 +229,20 @@ def followup_candidates(leads, template=None):
     return out
 
 
-def send_followups(limit=None, on_progress=console_progress):
-    from_email, reply_to = _env()
-    template = get_followup_template()
-    leads = load()
-    queue = followup_candidates(leads, template)
+def send_followups(client, limit=None, on_progress=console_progress):
+    api_key, from_email, reply_to = _creds(client)
+    template = get_followup_template(client)
+    leads = load(client["id"])
+    queue = followup_candidates(client, leads, template)
 
     if not queue:
         on_progress(
             {
                 "type": "done",
-                "message": f"Nenhum follow-up pendente (prazo {template['delay_days']}d).",
+                "message": (
+                    f"[{client['name']}] Nenhum follow-up pendente "
+                    f"(prazo {template['delay_days']}d)."
+                ),
                 "ok": 0,
                 "fail": 0,
             }
@@ -239,7 +257,7 @@ def send_followups(limit=None, on_progress=console_progress):
     on_progress(
         {
             "type": "log",
-            "message": f"Enviando follow-up pra {len(queue)} leads{suffix}…",
+            "message": f"[{client['name']}] Enviando follow-up pra {len(queue)} leads{suffix}…",
         }
     )
 
@@ -248,6 +266,7 @@ def send_followups(limit=None, on_progress=console_progress):
     for i, lead in enumerate(queue):
         try:
             email = build_email_with_template(
+                client,
                 template,
                 name=lead.get("name"),
                 reply_to=reply_to or from_email,
@@ -255,7 +274,7 @@ def send_followups(limit=None, on_progress=console_progress):
                 site_insights=lead.get("siteInsights"),
                 unsubscribe_url=unsubscribe_url(lead.get("email")),
             )
-            data = _send_email(lead.get("email"), from_email, reply_to, email)
+            data = _send_email(client, lead.get("email"), api_key, from_email, reply_to, email)
             lead["followupStep"] = 1
             lead["followupAt"] = _now()
             lead["followupResendId"] = data.get("id")
@@ -282,7 +301,7 @@ def send_followups(limit=None, on_progress=console_progress):
                     "status": f"falhou: {e}",
                 }
             )
-        save(leads)
+        save(client["id"], leads)
         if i < len(queue) - 1:
             time.sleep(DELAY_S)
 

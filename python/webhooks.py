@@ -1,8 +1,9 @@
-"""Processamento de webhooks do Resend: engajamento + supressão automática.
+"""Webhooks do Resend, com roteamento por cliente.
 
-O Resend assina os webhooks no padrão Svix (headers svix-id/svix-timestamp/
-svix-signature). Se RESEND_WEBHOOK_SECRET estiver no .env, a assinatura é validada;
-caso contrário, aceita sem validar (útil em dev) — em produção, configure o segredo.
+Ao enviar (sender.py), carimbamos cada email com tag {"name":"client_id", ...}.
+O webhook lê essa tag pra saber em qual cliente o evento se aplica. Pra emails
+enviados antes da migração multi-cliente (sem tag), faz fallback olhando o
+resendId em todos os clientes.
 """
 
 import base64
@@ -11,7 +12,7 @@ import hmac
 import os
 from datetime import datetime, timezone
 
-from state import add_suppression, load, save
+from state import add_suppression, find_lead_by_resend_id, load, save
 
 
 def _now():
@@ -21,7 +22,7 @@ def _now():
 def verify_signature(headers, raw_body):
     secret = os.environ.get("RESEND_WEBHOOK_SECRET")
     if not secret:
-        return True  # sem segredo configurado: não valida (dev)
+        return True
 
     svix_id = headers.get("svix-id")
     svix_timestamp = headers.get("svix-timestamp")
@@ -38,7 +39,6 @@ def verify_signature(headers, raw_body):
     signed = f"{svix_id}.{svix_timestamp}.{body}".encode("utf-8")
     expected = base64.b64encode(hmac.new(key, signed, hashlib.sha256).digest()).decode()
 
-    # svix-signature é "v1,<sig> v1,<sig2> ..."
     for part in svix_signature.split():
         _, _, sig = part.partition(",")
         if sig and hmac.compare_digest(sig, expected):
@@ -46,12 +46,17 @@ def verify_signature(headers, raw_body):
     return False
 
 
-def _find_by_resend_id(leads, email_id):
-    if not email_id:
+def _client_id_from_tags(data):
+    tags = data.get("tags")
+    if not tags:
         return None
-    for l in leads:
-        if l.get("resendId") == email_id or l.get("followupResendId") == email_id:
-            return l
+    # Resend devolve tags como lista de {name, value} ou dict {name: value}.
+    if isinstance(tags, dict):
+        return tags.get("client_id")
+    if isinstance(tags, list):
+        for t in tags:
+            if isinstance(t, dict) and t.get("name") == "client_id":
+                return t.get("value")
     return None
 
 
@@ -64,8 +69,41 @@ def process_event(payload):
     if isinstance(to, list):
         to = to[0] if to else None
 
-    leads = load()
-    lead = _find_by_resend_id(leads, email_id)
+    # 1) Tenta achar o cliente via tag do Resend.
+    client_id = _client_id_from_tags(data)
+    lead = None
+
+    if client_id:
+        # Cliente conhecido: carrega leads dele e procura por resend_id.
+        try:
+            leads = load(client_id)
+        except Exception:
+            leads = []
+        lead = next(
+            (
+                l
+                for l in leads
+                if l.get("resendId") == email_id or l.get("followupResendId") == email_id
+            ),
+            None,
+        )
+    else:
+        # 2) Fallback: busca o resend_id em todos os clientes.
+        client_id, lead = find_lead_by_resend_id(email_id)
+        if client_id and lead:
+            # carrega o conjunto pra poder salvar a alteração depois
+            leads = load(client_id)
+            lead = next(
+                (
+                    l
+                    for l in leads
+                    if l.get("resendId") == email_id
+                    or l.get("followupResendId") == email_id
+                ),
+                None,
+            )
+        else:
+            leads = []
 
     changed = False
     if lead:
@@ -88,15 +126,15 @@ def process_event(payload):
             lead["complainedAt"] = _now()
             changed = True
 
-    if changed:
-        save(leads)
+    if changed and client_id:
+        save(client_id, leads)
 
-    # Supressão automática em bounce/complaint, mesmo sem lead casado.
     target_email = (lead and lead.get("email")) or to
-    if event_type == "email.bounced":
-        add_suppression(target_email, reason="bounce")
-    elif event_type == "email.complained":
-        add_suppression(target_email, reason="complaint")
+    if client_id and target_email:
+        if event_type == "email.bounced":
+            add_suppression(client_id, target_email, reason="bounce")
+        elif event_type == "email.complained":
+            add_suppression(client_id, target_email, reason="complaint")
 
     matched = "lead atualizado" if lead else "sem lead casado"
-    return f"{event_type} · {target_email or '?'} · {matched}"
+    return f"{event_type} · client={client_id or '?'} · {target_email or '?'} · {matched}"

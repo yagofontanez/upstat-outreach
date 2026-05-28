@@ -145,6 +145,33 @@
         }, 2000);
       }
     });
+
+    document.querySelectorAll(".preset-run-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const presetId = btn.dataset.presetId;
+        if (!presetId) return;
+        progress.classList.remove("hidden");
+        logEl.textContent = "";
+        summaryEl.textContent = "";
+        const original = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "running…";
+        try {
+          const res = await fetch(`/api/scrape/preset/${presetId}`, { method: "POST" });
+          if (!res.ok) {
+            alert("falha ao iniciar preset");
+            return;
+          }
+          const { jobId } = await res.json();
+          streamJob(jobId, logEl, summaryEl, progress);
+        } finally {
+          setTimeout(() => {
+            btn.disabled = false;
+            btn.textContent = original;
+          }, 2000);
+        }
+      });
+    });
   }
 
   if (path === "/personalize") {

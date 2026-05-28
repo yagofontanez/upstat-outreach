@@ -1,4 +1,9 @@
-"""Geração de hook personalizado via Groq — equivalente a lib/personalize.js."""
+"""Geração de hook personalizado via Groq, por cliente.
+
+O SYSTEM prompt é específico do cliente (idioma + produtos proibidos de mencionar
+no hook). Default pra cada cliente vive em _DEFAULT_SYSTEM_BY_CLIENT; o usuário
+pode sobrescrever salvando em settings (key `personalize_system`) por cliente.
+"""
 
 import json
 import os
@@ -9,6 +14,7 @@ import httpx
 from groq import Groq
 
 from progress import console_progress
+from state import get_setting, set_setting
 
 MODEL = "llama-3.3-70b-versatile"
 FETCH_TIMEOUT_S = 8.0
@@ -22,7 +28,8 @@ _HEADERS = {
     "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.5",
 }
 
-SYSTEM = """Você ajuda a personalizar emails de cold outreach em português brasileiro.
+_DEFAULT_SYSTEM_BY_CLIENT = {
+    "upstat": """Você ajuda a personalizar emails de cold outreach em português brasileiro.
 
 Receberá: o nome de uma empresa, trechos do site oficial dela e, quando existir, uma análise técnica simples do site.
 
@@ -33,7 +40,36 @@ Regras importantes:
 - Se os trechos forem vagos ou insuficientes, escreva um hook neutro mas honesto baseado só no nicho aparente (não invente nada).
 - Se houver análise técnica, use apenas como contexto secundário. Prefira mencionar serviços reais da empresa; só mencione stack/dor se isso estiver claro e não soar acusatório.
 - Nunca mencione monitoramento, uptime, SaaS, UpStat ou qualquer produto — isso já está no corpo do email. O hook é só a abertura.
-- Responda APENAS com JSON válido, sem markdown, sem comentários. Exemplo: {"hook":"..."}"""
+- Responda APENAS com JSON válido, sem markdown, sem comentários. Exemplo: {"hook":"..."}""",
+    "martinsadviser": """You help personalize cold outreach emails in US English for a sender targeting US trucking and permit companies.
+
+You will receive: the name of a company, snippets from its public website and (when available) a light technical analysis of the site.
+
+Your task: produce JSON with one field:
+- "hook": 1 sentence (max 220 chars) opening that references SPECIFICALLY what the company does, based on the snippets. Casual, direct, first-person ("saw that you handle...", "noticed you run..."). No generic compliments ("nice site"), no invented facts, no awards or clients unless they appear in the snippets.
+
+Hard rules:
+- If the snippets are too thin, write a neutral but honest hook based only on the apparent niche (don't invent anything).
+- If technical analysis is provided, use it as secondary context only. Prefer mentioning real services; only mention stack/issues if it's clear and doesn't sound accusatory.
+- Never mention CRM, software, permits-as-a-service, MartinsAdviser, AI, copilot, dispatch software or any product — that belongs in the email body. The hook is just the opener.
+- Respond with VALID JSON only, no markdown, no comments. Example: {"hook":"..."}""",
+}
+
+
+def get_personalize_system(client):
+    """Retorna o SYSTEM do cliente — settings se editado, fallback no default."""
+    default = _DEFAULT_SYSTEM_BY_CLIENT.get(
+        client.get("id"), _DEFAULT_SYSTEM_BY_CLIENT["upstat"]
+    )
+    return get_setting(client["id"], "personalize_system", default)
+
+
+def save_personalize_system(client, system_prompt):
+    clean = str(system_prompt or "").strip()
+    if not clean:
+        raise ValueError("system prompt não pode ficar vazio")
+    set_setting(client["id"], "personalize_system", clean)
+    return clean
 
 
 def fetch_html(url):
@@ -168,7 +204,7 @@ def get_client():
     return _client
 
 
-def personalize_lead(lead):
+def personalize_lead(client, lead):
     groq = get_client()
     signals = ""
     if lead.get("website"):
@@ -176,13 +212,14 @@ def personalize_lead(lead):
         if html:
             signals = extract_signals(html)
 
+    system_prompt = get_personalize_system(client)
     completion = groq.chat.completions.create(
         model=MODEL,
         temperature=0.7,
         max_tokens=300,
         response_format={"type": "json_object"},
         messages=[
-            {"role": "system", "content": SYSTEM},
+            {"role": "system", "content": system_prompt},
             {
                 "role": "user",
                 "content": build_user_prompt(
@@ -201,7 +238,7 @@ def personalize_lead(lead):
     return parsed
 
 
-def personalize_leads(leads, force=False, on_progress=console_progress):
+def personalize_leads(client, leads, force=False, on_progress=console_progress):
     targets = [l for l in leads if force or not l.get("personalizedHook")]
     if not targets:
         on_progress({"type": "done", "message": "Nada pra personalizar."})
@@ -218,7 +255,7 @@ def personalize_leads(leads, force=False, on_progress=console_progress):
     fail = 0
     for i, lead in enumerate(targets):
         try:
-            hook = personalize_lead(lead)["hook"]
+            hook = personalize_lead(client, lead)["hook"]
             lead["personalizedHook"] = hook
             lead["personalizedAt"] = datetime.now(timezone.utc).isoformat()
             ok += 1

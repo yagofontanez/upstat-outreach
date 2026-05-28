@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}template · upstat outreach{% endblock %}
+{% block title %}template · {{ active_client.name|lower }} outreach{% endblock %}
 {% block content %}
 <header class="page-head">
-  <span class="eyebrow">03 ▸ template</span>
+  <span class="eyebrow">03 ▸ template · {{ active_client.name }} ({{ active_client.locale }})</span>
   <h1>edit the email.</h1>
-  <p>use variables like <span class="mono">{% raw %}{{company}}{% endraw %}</span>, <span class="mono">{% raw %}{{opening}}{% endraw %}</span>, <span class="mono">{% raw %}{{hook}}{% endraw %}</span>, <span class="mono">{% raw %}{{stack}}{% endraw %}</span>, <span class="mono">{% raw %}{{painSignals}}{% endraw %}</span>, <span class="mono">{% raw %}{{url}}{% endraw %}</span>, and <span class="mono">{% raw %}{{replyTo}}{% endraw %}</span>. preview does not send anything.</p>
+  <p>editing the template for <strong>{{ active_client.name }}</strong>. Each client has its own template/follow-up — switch clients in the topbar. Variables: <span class="mono">{% raw %}{{company}}{% endraw %}</span>, <span class="mono">{% raw %}{{opening}}{% endraw %}</span>, <span class="mono">{% raw %}{{hook}}{% endraw %}</span>, <span class="mono">{% raw %}{{stack}}{% endraw %}</span>, <span class="mono">{% raw %}{{painSignals}}{% endraw %}</span>, <span class="mono">{% raw %}{{url}}{% endraw %}</span> ({{ active_client.url }}), <span class="mono">{% raw %}{{replyTo}}{% endraw %}</span>, <span class="mono">{% raw %}{{unsubscribeUrl}}{% endraw %}</span>.</p>
 </header>
 
 <div class="template-grid">

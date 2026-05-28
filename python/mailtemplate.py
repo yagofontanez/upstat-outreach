@@ -1,14 +1,19 @@
-"""Montagem de email + template editável — equivalente a lib/template.js."""
+"""Montagem de email + templates editáveis, por cliente.
+
+Cada cliente tem seu próprio template (subject + body) e follow-up, guardados
+em settings/key, namespaced por client_id. Os defaults vivem aqui em
+DEFAULTS_BY_CLIENT e dependem do locale (pt-BR / en-US).
+"""
 
 import re
 
 from state import get_setting, set_setting
 
-UPSTAT_URL = "https://upstat.online/?utm_source=outreach&utm_medium=email"
-
-DEFAULT_TEMPLATE = {
-    "subject": "monitoramento de uptime pra {{company}}",
-    "body": """{{opening}}
+DEFAULTS_BY_CLIENT = {
+    "upstat": {
+        "template": {
+            "subject": "monitoramento de uptime pra {{company}}",
+            "body": """{{opening}}
 
 Sou o Yago, fundador do UpStat. Um SaaS de monitoramento de uptime feito pensando em agências e empresas pequenas que não querem pagar caro nem configurar Datadog pra monitorar 3 sites.
 
@@ -21,11 +26,70 @@ Yago
 
 ---
 Você recebeu este email porque sua empresa apareceu numa busca pública por agências/empresas. Se preferir não receber mais nada, escreva pra {{replyTo}} com "remover" no assunto.""",
+        },
+        "followup": {
+            "subject": "re: monitoramento de uptime pra {{company}}",
+            "body": """{{opening}}
+
+Só subindo esse email pra não passar despercebido — sei como a caixa de entrada lota.
+
+Resumindo em uma linha: o UpStat avisa em segundos quando o site de vocês (ou de um cliente) cai ou fica lento, com página de status pública pra mostrar pro cliente. Plano grátis, sem cartão: {{url}}
+
+Se não fizer sentido, sem problema — é só ignorar.
+
+Abraço,
+Yago
+
+---
+Não quer mais receber? {{unsubscribeUrl}}""",
+            "delay_days": 4,
+        },
+    },
+    "martinsadviser": {
+        "template": {
+            "subject": "{{company}} — CRM built for trucking & permits",
+            "body": """{{opening}}
+
+I'm Yago, founder of MartinsAdviser — a CRM built specifically for US trucking and permit companies. Clients, trucks, permits and compliance live in one place, with an integrated Kanban and an AI copilot that handles the busywork.
+
+If juggling permits, expirations and dispatch from spreadsheets is getting in the way, this could save your team a few hours a week. Free to try, no card required: {{url}}
+
+Best,
+Yago
+
+---
+You're getting this because your company came up in a public search. Reply with "remove" in the subject line if you'd rather not hear from us.""",
+        },
+        "followup": {
+            "subject": "re: CRM built for trucking & permits — {{company}}",
+            "body": """{{opening}}
+
+Just bumping this so it doesn't get buried — I know how the inbox piles up.
+
+One-liner: MartinsAdviser keeps your trucks, permits, clients and compliance organized in one place, with an AI copilot that watches for expirations and next steps. Free to try: {{url}}
+
+If it's not a fit, no worries — just ignore.
+
+Best,
+Yago
+
+---
+Don't want to hear from us? {{unsubscribeUrl}}""",
+            "delay_days": 4,
+        },
+    },
 }
 
 
+def _defaults_for(client):
+    """Pega os defaults pelo id do cliente; cai num genérico se não tiver seed."""
+    if not client:
+        return DEFAULTS_BY_CLIENT["upstat"]
+    return DEFAULTS_BY_CLIENT.get(client.get("id"), DEFAULTS_BY_CLIENT["upstat"])
+
+
 def _clean_company_name(name):
-    name = name or "time"
+    name = name or "team"
     name = re.sub(r"[®™©]", "", name)
     name = re.sub(r"\s+", " ", name)
     return name.strip()
@@ -55,41 +119,26 @@ def _escape_html(s):
     return re.sub(r"[&<>\"']", lambda c: _HTML_ESCAPES[c.group(0)], str(s))
 
 
-DEFAULT_FOLLOWUP = {
-    "subject": "re: monitoramento de uptime pra {{company}}",
-    "body": """{{opening}}
-
-Só subindo esse email pra não passar despercebido — sei como a caixa de entrada lota.
-
-Resumindo em uma linha: o UpStat avisa em segundos quando o site de vocês (ou de um cliente) cai ou fica lento, com página de status pública pra mostrar pro cliente. Plano grátis, sem cartão: {{url}}
-
-Se não fizer sentido, sem problema — é só ignorar.
-
-Abraço,
-Yago
-
----
-Não quer mais receber? {{unsubscribeUrl}}""",
-    "delay_days": 4,
-}
-
-
-def get_email_template():
+def get_email_template(client):
+    defaults = _defaults_for(client)["template"]
     return {
-        "subject": get_setting("email_template_subject", DEFAULT_TEMPLATE["subject"]),
-        "body": get_setting("email_template_body", DEFAULT_TEMPLATE["body"]),
+        "subject": get_setting(client["id"], "email_template_subject", defaults["subject"]),
+        "body": get_setting(client["id"], "email_template_body", defaults["body"]),
     }
 
 
-def get_followup_template():
+def get_followup_template(client):
+    defaults = _defaults_for(client)["followup"]
     return {
-        "subject": get_setting("followup_subject", DEFAULT_FOLLOWUP["subject"]),
-        "body": get_setting("followup_body", DEFAULT_FOLLOWUP["body"]),
-        "delay_days": int(get_setting("followup_delay_days", DEFAULT_FOLLOWUP["delay_days"])),
+        "subject": get_setting(client["id"], "followup_subject", defaults["subject"]),
+        "body": get_setting(client["id"], "followup_body", defaults["body"]),
+        "delay_days": int(
+            get_setting(client["id"], "followup_delay_days", defaults["delay_days"])
+        ),
     }
 
 
-def save_followup_template(subject, body, delay_days):
+def save_followup_template(client, subject, body, delay_days):
     clean_subject = str(subject or "").strip()
     clean_body = str(body or "").strip()
     if not clean_subject:
@@ -102,28 +151,29 @@ def save_followup_template(subject, body, delay_days):
         raise ValueError("delay_days precisa ser um número")
     if days < 1:
         raise ValueError("delay_days precisa ser >= 1")
-    set_setting("followup_subject", clean_subject)
-    set_setting("followup_body", clean_body)
-    set_setting("followup_delay_days", days)
-    return get_followup_template()
+    set_setting(client["id"], "followup_subject", clean_subject)
+    set_setting(client["id"], "followup_body", clean_body)
+    set_setting(client["id"], "followup_delay_days", days)
+    return get_followup_template(client)
 
 
-def save_email_template(subject, body):
+def save_email_template(client, subject, body):
     clean_subject = str(subject or "").strip()
     clean_body = str(body or "").strip()
     if not clean_subject:
         raise ValueError("subject não pode ficar vazio")
     if not clean_body:
         raise ValueError("body não pode ficar vazio")
-    set_setting("email_template_subject", clean_subject)
-    set_setting("email_template_body", clean_body)
-    return get_email_template()
+    set_setting(client["id"], "email_template_subject", clean_subject)
+    set_setting(client["id"], "email_template_body", clean_body)
+    return get_email_template(client)
 
 
-def build_subject(name):
+def build_subject(client, name):
     clean_name = _clean_company_name(name)
     return _render_template(
-        get_email_template()["subject"], {"company": clean_name, "name": clean_name}
+        get_email_template(client)["subject"],
+        {"company": clean_name, "name": clean_name},
     )
 
 
@@ -140,9 +190,21 @@ def _format_pain_signals(site_insights):
     return ", ".join(s["label"] for s in signals[:3])
 
 
-def build_email(name, reply_to, personalized_hook=None, site_insights=None, unsubscribe_url=""):
+def _opening_for_locale(locale, clean_name, hook):
+    """Saudação de abertura no idioma certo."""
+    if (locale or "").lower().startswith("en"):
+        return (
+            f"Hi {clean_name} team — {hook}" if hook else f"Hi {clean_name} team,"
+        )
+    return (
+        f"Oi, time da {clean_name}! {hook}" if hook else f"Oi, time da {clean_name}!"
+    )
+
+
+def build_email(client, name, reply_to, personalized_hook=None, site_insights=None, unsubscribe_url=""):
     return build_email_with_template(
-        get_email_template(),
+        client,
+        get_email_template(client),
         name=name,
         reply_to=reply_to,
         personalized_hook=personalized_hook,
@@ -152,7 +214,7 @@ def build_email(name, reply_to, personalized_hook=None, site_insights=None, unsu
 
 
 def build_email_with_template(
-    template, name, reply_to, personalized_hook=None, site_insights=None, unsubscribe_url=""
+    client, template, name, reply_to, personalized_hook=None, site_insights=None, unsubscribe_url=""
 ):
     clean_name = _clean_company_name(name)
     subject = _render_template(
@@ -160,9 +222,7 @@ def build_email_with_template(
     )
 
     hook = (personalized_hook or "").strip()
-    opening = (
-        f"Oi, time da {clean_name}! {hook}" if hook else f"Oi, time da {clean_name}!"
-    )
+    opening = _opening_for_locale(client.get("locale"), clean_name, hook)
 
     text = _render_template(
         template["body"],
@@ -174,7 +234,7 @@ def build_email_with_template(
             "replyTo": reply_to,
             "stack": _format_stack(site_insights),
             "painSignals": _format_pain_signals(site_insights),
-            "url": UPSTAT_URL,
+            "url": client.get("url") or "",
             "unsubscribeUrl": unsubscribe_url or "",
         },
     )

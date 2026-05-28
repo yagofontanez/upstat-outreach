@@ -1,6 +1,8 @@
-"""Scraper do Google Maps via Playwright — equivalente a lib/scraper.js.
+"""Scraper do Google Maps via Playwright, por locale.
 
-Usa a API síncrona do Playwright para manter a lógica próxima do original.
+Aceita locale='pt-BR' ou 'en-US' do cliente — muda a query ("X em <city>" vs
+"X in <city>"), o Accept-Language e o botão de aceitar cookies. Também expõe
+`scrape_cities(...)` pra iterar uma lista de cidades dedupedando por website.
 """
 
 import os
@@ -41,15 +43,38 @@ def clean_website(url):
         return url
 
 
-def scrape(term, city, max=30, on_progress=console_progress):
-    query = f"{term} em {city}"
+def _query_for_locale(term, city, locale):
+    if (locale or "").lower().startswith("en"):
+        return f"{term} in {city}"
+    return f"{term} em {city}"
+
+
+def _accept_cookies_button_selector(locale):
+    if (locale or "").lower().startswith("en"):
+        return 'button:has-text("Accept all"), button:has-text("I agree")'
+    return 'button:has-text("Aceitar tudo"), button:has-text("Aceitar todos")'
+
+
+def _maps_locale_param(locale):
+    return "en" if (locale or "").lower().startswith("en") else "pt-BR"
+
+
+def _accept_language(locale):
+    if (locale or "").lower().startswith("en"):
+        return "en-US,en;q=0.9"
+    return "pt-BR,pt;q=0.9,en;q=0.5"
+
+
+def scrape(term, city, max=30, locale="pt-BR", on_progress=console_progress):
+    query = _query_for_locale(term, city, locale)
     results = []
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=_headless())
         ctx = browser.new_context(
-            locale="pt-BR",
+            locale=locale or "pt-BR",
             viewport={"width": 1280, "height": 900},
+            extra_http_headers={"Accept-Language": _accept_language(locale)},
             user_agent=(
                 "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
                 "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
@@ -59,14 +84,12 @@ def scrape(term, city, max=30, on_progress=console_progress):
 
         on_progress({"type": "log", "message": f'Abrindo Google Maps: "{query}"'})
         page.goto(
-            f"https://www.google.com/maps/search/{quote(query)}/?hl=pt-BR",
+            f"https://www.google.com/maps/search/{quote(query)}/?hl={_maps_locale_param(locale)}",
             wait_until="domcontentloaded",
         )
 
         try:
-            page.locator(
-                'button:has-text("Aceitar tudo"), button:has-text("Aceitar todos")'
-            ).first.click(timeout=3000)
+            page.locator(_accept_cookies_button_selector(locale)).first.click(timeout=3000)
         except Exception:
             pass
 
@@ -133,12 +156,13 @@ def scrape(term, city, max=30, on_progress=console_progress):
                         const website = websiteEl?.getAttribute("href") || "";
                         const phoneEl =
                             document.querySelector('button[data-item-id^="phone"]') ||
-                            document.querySelector('[aria-label^="Telefone"]');
+                            document.querySelector('[aria-label^="Telefone"]') ||
+                            document.querySelector('[aria-label^="Phone"]');
                         const phone =
-                            phoneEl?.getAttribute("aria-label")?.replace(/Telefone:\\s*/i, "").trim() || "";
+                            phoneEl?.getAttribute("aria-label")?.replace(/(Telefone|Phone):\\s*/i, "").trim() || "";
                         const addrEl = get('button[data-item-id="address"]');
                         const address =
-                            addrEl?.getAttribute("aria-label")?.replace(/Endereço:\\s*/i, "").trim() || "";
+                            addrEl?.getAttribute("aria-label")?.replace(/(Endereço|Address):\\s*/i, "").trim() || "";
                         return { heading, website, phone, address };
                     }"""
                 )
@@ -173,6 +197,37 @@ def scrape(term, city, max=30, on_progress=console_progress):
         browser.close()
 
     return results
+
+
+def scrape_cities(term, cities, max=30, locale="pt-BR", on_progress=console_progress):
+    """Itera uma lista de cidades, dedup por website ou nome."""
+    seen_keys = set()
+    accumulated = []
+    for idx, city in enumerate(cities):
+        on_progress(
+            {
+                "type": "log",
+                "message": f'[{idx + 1}/{len(cities)}] Cidade: "{city}"',
+            }
+        )
+        try:
+            batch = scrape(term, city, max=max, locale=locale, on_progress=on_progress)
+        except Exception as e:
+            on_progress(
+                {
+                    "type": "log",
+                    "message": f'Erro em "{city}": {e}',
+                }
+            )
+            batch = []
+        for r in batch:
+            key = r.get("website") or r.get("name")
+            if not key or key in seen_keys:
+                continue
+            seen_keys.add(key)
+            r["searchedAs"] = f"{term} / {city}"
+            accumulated.append(r)
+    return accumulated
 
 
 if __name__ == "__main__":
