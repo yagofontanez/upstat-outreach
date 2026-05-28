@@ -8,14 +8,18 @@
 </header>
 
 {% if presets %}
-<section class="panel" style="margin-bottom: var(--s-5);">
-  <div class="panel-head"><span>▸ saved presets</span><span class="panel-tag">1-click run</span></div>
-  <div class="saved-presets" style="padding: var(--s-4);">
+<section class="panel" style="margin-bottom: var(--s-5); padding: 0; overflow: hidden;">
+  <div class="panel-head" style="padding: var(--s-4) var(--s-5); margin: 0; background: var(--surface-2);">
+    <span>▸ saved presets</span>
+    <span class="panel-tag">1-click batch</span>
+  </div>
+  <div class="saved-presets">
     {% for p in presets %}
     <div class="saved-preset" data-preset-id="{{ p.id }}">
+      <span class="preset-idx">{{ "%02d"|format(loop.index) }}</span>
       <div class="label">
         <strong>{{ p.label }}</strong>
-        <span class="meta">{{ p.term }} · {{ p.cities|length }} {{ 'cities' if active_client.locale.startswith('en') else 'cidades' }} · max {{ p.max_results }}/cidade</span>
+        <span class="meta">› {{ p.term }} · {{ p.cities|length }} {{ 'cities' if active_client.locale.startswith('en') else 'cidades' }} · max {{ p.max_results }}/each</span>
       </div>
       <button type="button" class="preset-run-btn" data-preset-id="{{ p.id }}">run</button>
     </div>

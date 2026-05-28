@@ -1,86 +1,256 @@
 {% extends "base.html" %}
-{% block title %}clientes · outreach{% endblock %}
+{% block title %}clients · outreach{% endblock %}
 {% block content %}
 <header class="page-head">
-  <span class="eyebrow">⚙ ▸ clients</span>
-  <h1>clientes (SaaS).</h1>
-  <p>cada cliente é um SaaS seu (UpStat, MartinsAdviser…). filas de leads, templates e supressões são separadas por cliente. credenciais do Resend são configuradas aqui — se em branco, o app cai pro <span class="mono">.env</span>.</p>
+  <span class="eyebrow">⚙ ▸ saas registry</span>
+  <h1>clients.</h1>
+  <p>each <em>port</em> is a separate SaaS — own lead queue, template, suppressions and Resend credentials. switch the active port from the topbar; manage the roster here.</p>
 </header>
 
 <section class="section">
-  <div class="section-head"><span class="num">01 ▸ cadastrados</span><h2>existentes</h2></div>
-  <div class="config-list">
+  <div class="section-head">
+    <span class="num">01 ▸ active ports</span>
+    <h2>registered saas</h2>
+    <span class="meta">{{ clients|length }} · registered</span>
+  </div>
+
+  <div class="port-stack">
     {% for c in clients %}
-    <div class="config-row" data-client-id="{{ c.id }}">
-      <div>
-        <h3>{{ c.name }} {% if c.is_default %}<span class="mono" style="font-size:11px;color:var(--accent);margin-left:8px;">DEFAULT</span>{% endif %}</h3>
-        <div class="meta">
-          id: <strong>{{ c.id }}</strong> · locale: <strong>{{ c.locale }}</strong> · url: <a href="{{ c.url }}" target="_blank" rel="noopener" class="bare" style="color:var(--text);">{{ c.url }}</a>
+    {% set has_creds = c.resend_api_key and c.from_email %}
+    <article class="port {% if c.is_default %}is-default{% endif %}" data-client-id="{{ c.id }}">
+      <header class="port-head">
+        <span class="port-num">PORT · {{ "%02d"|format(loop.index) }}</span>
+        <div class="port-title">
+          <span class="name">{{ c.name }}</span>
+          <span class="host">
+            <span>{{ c.id }}</span>
+            <span class="sep">·</span>
+            <a href="{{ c.url }}" target="_blank" rel="noopener">{{ c.url|replace('https://', '')|replace('http://', '')|truncate(70, true, '…') }}</a>
+          </span>
         </div>
-        <form class="client-edit-form" data-client-id="{{ c.id }}" style="margin-top: var(--s-3); display:grid; gap: var(--s-2);">
-          <div class="field"><label>name</label><input name="name" value="{{ c.name }}" required></div>
-          <div class="field"><label>url</label><input name="url" value="{{ c.url }}" required></div>
-          <div class="field"><label>locale</label>
-            <select name="locale">
-              <option value="pt-BR" {% if c.locale == 'pt-BR' %}selected{% endif %}>pt-BR</option>
-              <option value="en-US" {% if c.locale == 'en-US' %}selected{% endif %}>en-US</option>
-            </select>
+        <div class="port-flags">
+          <span class="flag locale">{{ c.locale }}</span>
+          {% if c.is_default %}<span class="flag default">DEFAULT</span>{% endif %}
+          {% if has_creds %}
+            <span class="flag ready" title="resend credentials linked">RESEND · LINKED</span>
+          {% else %}
+            <span class="flag incomplete" title="missing resend credentials — uses .env fallback">RESEND · FALLBACK</span>
+          {% endif %}
+        </div>
+      </header>
+
+      <form class="port-body client-edit-form" data-client-id="{{ c.id }}">
+        <div class="config-grid cols-2">
+          <div class="config-field">
+            <label for="cli-{{c.id}}-name">display name</label>
+            <div class="input-shell">
+              <span class="input-prefix">name</span>
+              <input id="cli-{{c.id}}-name" name="name" value="{{ c.name }}" required>
+            </div>
           </div>
-          <div class="field"><label>resend_api_key</label>
-            <input name="resend_api_key" type="password" autocomplete="new-password" value="{{ c.resend_api_key }}" placeholder="{% if c.resend_api_key %}(salvo){% else %}re_…{% endif %}">
+
+          <div class="config-field">
+            <label for="cli-{{c.id}}-url">public url</label>
+            <div class="input-shell">
+              <span class="input-prefix">url</span>
+              <input id="cli-{{c.id}}-url" name="url" type="url" value="{{ c.url }}" required>
+            </div>
           </div>
-          <div class="field"><label>from_email</label>
-            <input name="from_email" value="{{ c.from_email }}" placeholder="Yago &lt;yago@{{ c.id }}.com&gt;">
+
+          <div class="config-field">
+            <span class="field-label">locale</span>
+            <div class="segmented" data-segmented="locale">
+              <button type="button" data-value="pt-BR" class="{% if c.locale == 'pt-BR' %}is-on{% endif %}">PT-BR</button>
+              <button type="button" data-value="en-US" class="{% if c.locale == 'en-US' %}is-on{% endif %}">EN-US</button>
+            </div>
+            <input type="hidden" name="locale" value="{{ c.locale }}">
           </div>
-          <div class="field"><label>reply_to</label>
-            <input name="reply_to" value="{{ c.reply_to }}" placeholder="opcional">
+
+          <div class="config-field">
+            <span class="field-label">default port</span>
+            <label class="switch">
+              <input type="checkbox" name="is_default" {% if c.is_default %}checked{% endif %}>
+              <span class="rail"></span>
+              <span class="label-text">UI boots here</span>
+            </label>
           </div>
-          <div class="field">
-            <label><input type="checkbox" name="is_default" {% if c.is_default %}checked{% endif %}> default (UI abre nesse cliente)</label>
+        </div>
+
+        <div class="config-field">
+          <label for="cli-{{c.id}}-key">resend api key</label>
+          <div class="input-shell">
+            <span class="input-prefix">key</span>
+            <input id="cli-{{c.id}}-key" name="resend_api_key" type="password" autocomplete="new-password"
+                   placeholder="{% if c.resend_api_key %}•••••••••••••• (stored — leave empty to keep){% else %}re_…{% endif %}">
           </div>
-          <div class="template-actions">
-            <button type="submit" class="btn btn-primary">salvar</button>
-            <span class="form-status"></span>
+        </div>
+
+        <div class="config-grid cols-2">
+          <div class="config-field">
+            <label for="cli-{{c.id}}-from">from address</label>
+            <div class="input-shell">
+              <span class="input-prefix">from</span>
+              <input id="cli-{{c.id}}-from" name="from_email" value="{{ c.from_email }}"
+                     placeholder="Yago &lt;yago@{{ c.id }}.com&gt;">
+            </div>
           </div>
-        </form>
+
+          <div class="config-field">
+            <label for="cli-{{c.id}}-reply">reply-to (optional)</label>
+            <div class="input-shell">
+              <span class="input-prefix">reply</span>
+              <input id="cli-{{c.id}}-reply" name="reply_to" value="{{ c.reply_to }}" placeholder="optional">
+            </div>
+          </div>
+        </div>
+      </form>
+
+      <div class="port-actions">
+        <div class="left">
+          <span class="port-status {% if has_creds %}is-ok{% else %}{% endif %}">
+            {% if has_creds %}credentials linked · ready to send{% else %}using .env fallback · ok for dev{% endif %}
+          </span>
+        </div>
+        <div class="right">
+          <span class="form-status" data-form-status="{{ c.id }}"></span>
+          <button type="button" class="btn btn-ghost btn-sm" data-form-reset="{{ c.id }}">discard</button>
+          <button type="submit" class="btn btn-primary btn-sm" form="" data-form-submit="{{ c.id }}">save</button>
+        </div>
       </div>
-    </div>
+    </article>
     {% endfor %}
   </div>
 </section>
 
-<section class="section" style="margin-top: var(--s-7);">
-  <div class="section-head"><span class="num">02 ▸ novo cliente</span><h2>cadastrar outro SaaS</h2></div>
-  <form id="new-client-form" class="panel" style="padding: var(--s-4); display:grid; gap: var(--s-3);">
-    <div class="field"><label>id (slug — minúsculo, sem espaço)</label>
-      <input name="id" required placeholder="ex: meusaas3"></div>
-    <div class="field"><label>name</label><input name="name" required placeholder="ex: MeuSaaS"></div>
-    <div class="field"><label>url</label>
-      <input name="url" required placeholder="https://meusaas.com/?utm_source=outreach"></div>
-    <div class="field"><label>locale</label>
-      <select name="locale">
-        <option value="pt-BR">pt-BR</option>
-        <option value="en-US">en-US</option>
-      </select>
+<section class="section">
+  <div class="section-head">
+    <span class="num">02 ▸ register</span>
+    <h2>cadastrar novo saas</h2>
+    <span class="meta">port {{ "%02d"|format(clients|length + 1) }} reserved</span>
+  </div>
+
+  <form id="new-client-form" class="new-port">
+    <header class="new-port-head">
+      <span class="plus">+</span>
+      <h3>new port</h3>
+      <span class="desc">empty slot · awaiting config</span>
+    </header>
+
+    <div class="config-grid cols-2">
+      <div class="config-field">
+        <label for="np-id">slug (kebab-case, no spaces)</label>
+        <div class="input-shell">
+          <span class="input-prefix">id</span>
+          <input id="np-id" name="id" required placeholder="ex: meusaas3" pattern="[a-z0-9\-]+">
+        </div>
+      </div>
+      <div class="config-field">
+        <label for="np-name">display name</label>
+        <div class="input-shell">
+          <span class="input-prefix">name</span>
+          <input id="np-name" name="name" required placeholder="ex: MeuSaaS">
+        </div>
+      </div>
     </div>
-    <div class="field"><label>resend_api_key</label>
-      <input name="resend_api_key" type="password" autocomplete="new-password" placeholder="re_…"></div>
-    <div class="field"><label>from_email</label>
-      <input name="from_email" placeholder="Nome &lt;contato@meusaas.com&gt;"></div>
-    <div class="field"><label>reply_to</label>
-      <input name="reply_to" placeholder="opcional"></div>
-    <div class="template-actions">
-      <button type="submit" class="btn btn-primary">cadastrar</button>
-      <span class="form-status" id="new-client-status"></span>
+
+    <div class="config-field">
+      <label for="np-url">public url</label>
+      <div class="input-shell">
+        <span class="input-prefix">url</span>
+        <input id="np-url" name="url" type="url" required placeholder="https://meusaas.com/?utm_source=outreach">
+      </div>
+    </div>
+
+    <div class="config-grid cols-2">
+      <div class="config-field">
+        <span class="field-label">locale</span>
+        <div class="segmented" data-segmented="locale">
+          <button type="button" data-value="pt-BR" class="is-on">PT-BR</button>
+          <button type="button" data-value="en-US">EN-US</button>
+        </div>
+        <input type="hidden" name="locale" value="pt-BR">
+      </div>
+      <div class="config-field">
+        <label for="np-key">resend api key</label>
+        <div class="input-shell">
+          <span class="input-prefix">key</span>
+          <input id="np-key" name="resend_api_key" type="password" autocomplete="new-password" placeholder="re_…">
+        </div>
+      </div>
+    </div>
+
+    <div class="config-grid cols-2">
+      <div class="config-field">
+        <label for="np-from">from address</label>
+        <div class="input-shell">
+          <span class="input-prefix">from</span>
+          <input id="np-from" name="from_email" placeholder="Name &lt;contato@meusaas.com&gt;">
+        </div>
+      </div>
+      <div class="config-field">
+        <label for="np-reply">reply-to (optional)</label>
+        <div class="input-shell">
+          <span class="input-prefix">reply</span>
+          <input id="np-reply" name="reply_to" placeholder="optional">
+        </div>
+      </div>
+    </div>
+
+    <div class="port-actions" style="margin: 0; background: transparent; border-top: 1px dashed var(--border); padding: var(--s-3) 0 0;">
+      <span class="port-status">credentials are optional · .env values used as fallback</span>
+      <div class="right">
+        <span class="form-status" id="new-client-status"></span>
+        <button type="submit" class="btn btn-primary">register port</button>
+      </div>
     </div>
   </form>
 </section>
 
 <script>
+// ─── segmented control ───────────────────────────────────
+document.querySelectorAll(".segmented[data-segmented]").forEach((seg) => {
+  const target = seg.parentElement.querySelector('input[type="hidden"]');
+  if (!target) return;
+  seg.querySelectorAll("button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      seg.querySelectorAll("button").forEach((b) => b.classList.toggle("is-on", b === btn));
+      target.value = btn.dataset.value;
+    });
+  });
+});
+
+// ─── existing client forms ───────────────────────────────
+function setStatus(el, msg, kind) {
+  if (!el) return;
+  el.textContent = msg || "";
+  el.classList.remove("is-ok", "is-err", "is-loading");
+  if (kind) el.classList.add("kind" in {} || kind === "ok" ? "is-ok" : kind === "err" ? "is-err" : "is-loading");
+  if (kind === "loading") el.classList.add("is-loading");
+  if (kind === "ok") el.classList.add("is-ok");
+  if (kind === "err") el.classList.add("is-err");
+}
+
 document.querySelectorAll(".client-edit-form").forEach((form) => {
+  const id = form.dataset.clientId;
+  const status = document.querySelector(`[data-form-status="${id}"]`);
+  const submitBtn = document.querySelector(`[data-form-submit="${id}"]`);
+  const resetBtn = document.querySelector(`[data-form-reset="${id}"]`);
+
+  if (submitBtn) submitBtn.addEventListener("click", () => form.requestSubmit());
+  if (resetBtn) resetBtn.addEventListener("click", () => {
+    form.reset();
+    // re-sync segmented control after reset
+    form.querySelectorAll(".segmented[data-segmented]").forEach((seg) => {
+      const tgt = seg.parentElement.querySelector('input[type="hidden"]');
+      const val = tgt?.defaultValue || tgt?.value;
+      seg.querySelectorAll("button").forEach((b) => b.classList.toggle("is-on", b.dataset.value === val));
+    });
+    setStatus(status, "discarded", "ok");
+    setTimeout(() => setStatus(status, ""), 1200);
+  });
+
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const id = form.dataset.clientId;
     const fd = new FormData(form);
     const body = {
       name: fd.get("name"),
@@ -92,8 +262,7 @@ document.querySelectorAll(".client-edit-form").forEach((form) => {
     };
     const apiKey = fd.get("resend_api_key");
     if (apiKey) body.resend_api_key = apiKey;
-    const status = form.querySelector(".form-status");
-    status.textContent = "salvando…";
+    setStatus(status, "saving", "loading");
     try {
       const res = await fetch(`/api/clients/${id}`, {
         method: "POST",
@@ -102,25 +271,26 @@ document.querySelectorAll(".client-edit-form").forEach((form) => {
       });
       const data = await res.json();
       if (!res.ok) {
-        status.textContent = data.error || "erro";
+        setStatus(status, data.error || "failed", "err");
         return;
       }
-      status.textContent = "salvo ✓ — recarregando…";
-      setTimeout(() => window.location.reload(), 600);
+      setStatus(status, "saved · reloading", "ok");
+      setTimeout(() => window.location.reload(), 500);
     } catch (err) {
-      status.textContent = err.message;
+      setStatus(status, err.message, "err");
     }
   });
 });
 
+// ─── new client form ─────────────────────────────────────
 const newForm = document.getElementById("new-client-form");
 if (newForm) {
+  const status = document.getElementById("new-client-status");
   newForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const fd = new FormData(newForm);
     const body = Object.fromEntries(fd.entries());
-    const status = document.getElementById("new-client-status");
-    status.textContent = "criando…";
+    setStatus(status, "creating", "loading");
     try {
       const res = await fetch("/api/clients", {
         method: "POST",
@@ -129,13 +299,13 @@ if (newForm) {
       });
       const data = await res.json();
       if (!res.ok) {
-        status.textContent = data.error || "erro";
+        setStatus(status, data.error || "failed", "err");
         return;
       }
-      status.textContent = "criado ✓ — recarregando…";
+      setStatus(status, "port created · reloading", "ok");
       setTimeout(() => window.location.reload(), 600);
     } catch (err) {
-      status.textContent = err.message;
+      setStatus(status, err.message, "err");
     }
   });
 }

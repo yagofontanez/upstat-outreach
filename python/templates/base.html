@@ -23,26 +23,42 @@
       <a href="/clients" class="{{ 'active' if active == 'clients' else '' }}">Clientes</a>
     </nav>
     {% if all_clients and all_clients|length > 1 %}
-    <details class="client-switcher" id="client-switcher">
-      <summary aria-haspopup="listbox" aria-label="trocar cliente">
-        <span class="cs-pre">▎</span>
+    <details class="cs" id="client-switcher">
+      <summary aria-haspopup="listbox" aria-label="switch active saas">
+        <span class="cs-dot" aria-hidden="true"></span>
         <span class="cs-name">{{ active_client.name }}</span>
+        <span class="cs-divider" aria-hidden="true">/</span>
         <span class="cs-locale">{{ active_client.locale }}</span>
-        <span class="cs-chevron" aria-hidden="true">▾</span>
+        <span class="cs-caret" aria-hidden="true"></span>
       </summary>
-      <div class="cs-menu" role="listbox">
-        <div class="cs-menu-head">switch saas</div>
-        {% for c in all_clients %}
-        <form action="/switch-client" method="post" class="cs-form">
-          <input type="hidden" name="client_id" value="{{ c.id }}">
-          <button type="submit" class="cs-item {% if active_client and c.id == active_client.id %}is-active{% endif %}" role="option" {% if active_client and c.id == active_client.id %}aria-selected="true"{% endif %}>
-            <span class="cs-item-mark">{% if active_client and c.id == active_client.id %}●{% else %}○{% endif %}</span>
-            <span class="cs-item-name">{{ c.name }}</span>
-            <span class="cs-item-locale">{{ c.locale }}</span>
-          </button>
-        </form>
-        {% endfor %}
-        <a href="/clients" class="cs-menu-foot bare">manage clients →</a>
+      <div class="cs-panel" role="listbox" aria-label="saas registry">
+        <div class="cs-panel-head">
+          <span class="cs-panel-label">saas registry</span>
+          <span class="cs-panel-count">{{ all_clients|length }} active</span>
+        </div>
+        <ul class="cs-list">
+          {% for c in all_clients %}
+          <li class="cs-row">
+            <form action="/switch-client" method="post" class="cs-form">
+              <input type="hidden" name="client_id" value="{{ c.id }}">
+              <button type="submit" class="cs-item {% if active_client and c.id == active_client.id %}is-active{% endif %}"
+                      role="option" {% if active_client and c.id == active_client.id %}aria-selected="true"{% endif %}>
+                <span class="cs-port">{{ "%02d"|format(loop.index) }}</span>
+                <span class="cs-info">
+                  <span class="cs-info-name">{{ c.name }}</span>
+                  <span class="cs-info-host">{{ c.url|replace('https://', '')|replace('http://', '')|truncate(34, true, '…') }}</span>
+                </span>
+                <span class="cs-info-locale">{{ c.locale }}</span>
+              </button>
+            </form>
+          </li>
+          {% endfor %}
+        </ul>
+        <a href="/clients" class="cs-panel-foot bare">
+          <span class="cs-foot-mark">+</span>
+          <span>manage / register</span>
+          <span class="cs-foot-arrow">→</span>
+        </a>
       </div>
     </details>
     {% endif %}

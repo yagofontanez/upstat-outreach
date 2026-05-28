@@ -2,59 +2,163 @@
 {% block title %}presets · {{ active_client.name|lower }} outreach{% endblock %}
 {% block content %}
 <header class="page-head">
-  <span class="eyebrow">⚙ ▸ search presets · {{ active_client.name }}</span>
-  <h1>presets de busca.</h1>
-  <p>cada preset é uma lista de cidades pra rodar com o mesmo termo. clique <strong>run</strong> em qualquer preset na tela <a href="/scrape" class="bare" style="color:var(--text);text-decoration:underline;">/scrape</a> pra disparar — itera as cidades e dedupa por website.</p>
+  <span class="eyebrow">⚙ ▸ search registry · {{ active_client.name }}</span>
+  <h1>presets.</h1>
+  <p>each preset is one Maps search term spread across a city list — runs in batch, dedup by website. fire any preset with <span class="mono" style="color:var(--text);">run</span> on the <a href="/scrape" style="border-bottom-color:var(--accent-deep);">scrape</a> screen.</p>
 </header>
 
 <section class="section">
-  <div class="section-head"><span class="num">01 ▸ existentes</span><h2>presets cadastrados</h2></div>
-  <div class="config-list">
+  <div class="section-head">
+    <span class="num">01 ▸ registered</span>
+    <h2>saved presets</h2>
+    <span class="meta">{{ presets|length }} · for {{ active_client.name }}</span>
+  </div>
+
+  {% if presets %}
+  <div class="port-stack">
     {% for p in presets %}
-    <div class="config-row" data-preset-id="{{ p.id }}">
-      <div>
-        <h3>{{ p.label }}</h3>
-        <div class="meta">term: <strong>{{ p.term }}</strong> · cidades: {{ p.cities|join(', ') }} · max {{ p.max_results }}/cidade</div>
+    <article class="port" data-preset-id="{{ p.id }}">
+      <header class="port-head">
+        <span class="port-num">SET · {{ "%02d"|format(loop.index) }}</span>
+        <div class="port-title">
+          <span class="name">{{ p.label }}</span>
+          <span class="host">
+            <span>query: <strong style="color:var(--text-dim);font-weight:500;">{{ p.term }}</strong></span>
+            <span class="sep">·</span>
+            <span>{{ p.cities|length }} {{ 'cities' if active_client.locale.startswith('en') else 'cidades' }} · max {{ p.max_results }}/each</span>
+          </span>
+        </div>
+        <div class="port-flags">
+          <span class="flag locale">{{ active_client.locale }}</span>
+        </div>
+      </header>
+
+      <div class="port-body">
+        <div class="config-field">
+          <span class="field-label">target cities</span>
+          <div class="cities-grid">
+            {% for city in p.cities %}
+            <span class="city-chip">{{ city }}</span>
+            {% endfor %}
+          </div>
+        </div>
       </div>
-      <div class="actions">
-        <button type="button" class="danger-btn" data-delete-preset="{{ p.id }}">remover</button>
+
+      <div class="port-actions">
+        <div class="left">
+          <span class="port-status">term will be queried in {{ p.cities|length }} location{% if p.cities|length != 1 %}s{% endif %}</span>
+        </div>
+        <div class="right">
+          <button type="button" class="btn-remove" data-delete-preset="{{ p.id }}">remove</button>
+        </div>
       </div>
-    </div>
-    {% else %}
-    <p class="muted">nenhum preset cadastrado pro {{ active_client.name }}. crie um abaixo.</p>
+    </article>
     {% endfor %}
   </div>
+  {% else %}
+  <div class="port-empty">
+    <div class="glyph">∅</div>
+    <div class="msg">no presets yet for {{ active_client.name }}.</div>
+    <div class="hint">register one below ↓</div>
+  </div>
+  {% endif %}
 </section>
 
-<section class="section" style="margin-top: var(--s-7);">
-  <div class="section-head"><span class="num">02 ▸ novo preset</span><h2>cadastrar preset</h2></div>
-  <form id="new-preset-form" class="panel" style="padding: var(--s-4); display:grid; gap: var(--s-3);">
-    <div class="field"><label>label (nome amigável)</label>
-      <input name="label" required placeholder="ex: trucking — TX hub"></div>
-    <div class="field"><label>term (consulta no Maps)</label>
-      <input name="term" required placeholder="{% if active_client.locale.startswith('en') %}trucking company{% else %}agência de marketing{% endif %}"></div>
-    <div class="field"><label>cidades (uma por linha, ou separadas por vírgula)</label>
-      <textarea name="cities" rows="4" required placeholder="{% if active_client.locale.startswith('en') %}Houston, TX&#10;Dallas, TX{% else %}São Paulo&#10;Curitiba{% endif %}"></textarea></div>
-    <div class="field"><label>max results por cidade</label>
-      <input name="max_results" type="number" min="1" max="100" value="30"></div>
-    <div class="template-actions">
-      <button type="submit" class="btn btn-primary">cadastrar</button>
-      <span class="form-status" id="new-preset-status"></span>
+<section class="section">
+  <div class="section-head">
+    <span class="num">02 ▸ register</span>
+    <h2>cadastrar preset</h2>
+    <span class="meta">port {{ "%02d"|format(presets|length + 1) }} reserved</span>
+  </div>
+
+  <form id="new-preset-form" class="new-port">
+    <header class="new-port-head">
+      <span class="plus">+</span>
+      <h3>new preset</h3>
+      <span class="desc">empty slot · awaiting config</span>
+    </header>
+
+    <div class="config-grid cols-2">
+      <div class="config-field">
+        <label for="np-label">label</label>
+        <div class="input-shell">
+          <span class="input-prefix">name</span>
+          <input id="np-label" name="label" required placeholder="{% if active_client.locale.startswith('en') %}trucking — TX hub{% else %}agências — sul/sudeste{% endif %}">
+        </div>
+      </div>
+      <div class="config-field">
+        <label for="np-term">maps query term</label>
+        <div class="input-shell">
+          <span class="input-prefix">term</span>
+          <input id="np-term" name="term" required placeholder="{% if active_client.locale.startswith('en') %}trucking company{% else %}agência de marketing{% endif %}">
+        </div>
+      </div>
+    </div>
+
+    <div class="config-field">
+      <label for="np-cities">cities <span class="hint" style="text-transform: none; letter-spacing: 0;">— one per line or comma-separated</span></label>
+      <div class="input-shell" style="grid-template-columns: 64px 1fr; align-items: stretch;">
+        <span class="input-prefix" style="border-right: 1px solid var(--border); padding-top: 12px; align-self: stretch;">geo</span>
+        <textarea id="np-cities" name="cities" rows="5" required placeholder="{% if active_client.locale.startswith('en') %}Houston, TX&#10;Dallas, TX&#10;Atlanta, GA{% else %}São Paulo&#10;Curitiba&#10;Belo Horizonte{% endif %}"></textarea>
+      </div>
+    </div>
+
+    <div class="config-grid cols-2">
+      <div class="config-field">
+        <label for="np-max">max results per city</label>
+        <div class="input-shell compact">
+          <span class="input-prefix">limit</span>
+          <input id="np-max" name="max_results" type="number" min="1" max="100" value="30">
+        </div>
+        <span class="hint">1–100 · lower batches review easier</span>
+      </div>
+    </div>
+
+    <div class="port-actions" style="margin: 0; background: transparent; border-top: 1px dashed var(--border); padding: var(--s-3) 0 0;">
+      <span class="port-status">preset will iterate every city · dedup by website</span>
+      <div class="right">
+        <span class="form-status" id="new-preset-status"></span>
+        <button type="submit" class="btn btn-primary">register preset</button>
+      </div>
     </div>
   </form>
 </section>
 
 <script>
+function setStatus(el, msg, kind) {
+  if (!el) return;
+  el.textContent = msg || "";
+  el.classList.remove("is-ok", "is-err", "is-loading");
+  if (kind === "loading") el.classList.add("is-loading");
+  if (kind === "ok") el.classList.add("is-ok");
+  if (kind === "err") el.classList.add("is-err");
+}
+
+// ─── delete preset ───────────────────────────────────
 document.querySelectorAll("[data-delete-preset]").forEach((btn) => {
   btn.addEventListener("click", async () => {
-    if (!confirm("remover este preset?")) return;
+    if (!confirm("remove this preset?")) return;
     const id = btn.dataset.deletePreset;
+    btn.disabled = true;
+    btn.textContent = "removing…";
     const res = await fetch(`/api/presets/${id}/delete`, { method: "POST" });
-    if (res.ok) window.location.reload();
-    else alert("falhou");
+    if (res.ok) {
+      const port = btn.closest(".port");
+      if (port) {
+        port.style.transition = "opacity 200ms, transform 200ms";
+        port.style.opacity = "0";
+        port.style.transform = "translateY(-4px)";
+      }
+      setTimeout(() => window.location.reload(), 220);
+    } else {
+      btn.disabled = false;
+      btn.textContent = "remove";
+      alert("failed to remove");
+    }
   });
 });
 
+// ─── new preset form ────────────────────────────────
 const form = document.getElementById("new-preset-form");
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -66,7 +170,7 @@ form.addEventListener("submit", async (e) => {
     max_results: fd.get("max_results"),
   };
   const status = document.getElementById("new-preset-status");
-  status.textContent = "criando…";
+  setStatus(status, "creating", "loading");
   try {
     const res = await fetch("/api/presets", {
       method: "POST",
@@ -75,13 +179,13 @@ form.addEventListener("submit", async (e) => {
     });
     const data = await res.json();
     if (!res.ok) {
-      status.textContent = data.error || "erro";
+      setStatus(status, data.error || "failed", "err");
       return;
     }
-    status.textContent = "criado ✓ — recarregando…";
+    setStatus(status, "preset registered · reloading", "ok");
     setTimeout(() => window.location.reload(), 600);
   } catch (err) {
-    status.textContent = err.message;
+    setStatus(status, err.message, "err");
   }
 });
 </script>
