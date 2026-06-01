@@ -181,6 +181,7 @@ def send(client, limit=None, test_email=None, on_progress=console_progress):
             )
         except Exception as e:
             lead["lastError"] = str(e)
+            lead["lastErrorAt"] = _now()
             fail += 1
             on_progress(
                 {
@@ -291,6 +292,7 @@ def send_followups(client, limit=None, on_progress=console_progress):
             )
         except Exception as e:
             lead["lastError"] = str(e)
+            lead["lastErrorAt"] = _now()
             fail += 1
             on_progress(
                 {

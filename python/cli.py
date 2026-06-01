@@ -72,6 +72,11 @@ Comandos:
       estiver LIGADO no painel pra esse cliente (use --force pra ignorar a flag).
       O follow-up fica de fora por padrão — use --followup pra incluí-lo.
 
+  report [--to <addr>] [--since <ISO>] [--hours N]
+      Manda um email consolidado (todos os clientes) com quem recebeu email,
+      falhas e contadores da janela. Default: últimas 24h, destinatário em
+      REPORT_TO (.env). Rodado ao fim do pipeline.sh.
+
   rescore
       Recalcula o pain score dos leads que já têm scan.
 
@@ -387,6 +392,23 @@ def main():
             except ValueError:
                 raise SystemExit("--min-score precisa ser um número")
         pipeline_mod.run(client, **opts)
+        return
+
+    if cmd == "report":
+        import report as report_mod
+
+        to = _pop_flag_value(rest, "--to") or os.environ.get("REPORT_TO")
+        if not to:
+            raise SystemExit("informe o destinatário: --to <addr> ou REPORT_TO no .env")
+        since = _pop_flag_value(rest, "--since")
+        hours_raw = _pop_flag_value(rest, "--hours")
+        hours = 24
+        if hours_raw is not None:
+            try:
+                hours = int(hours_raw)
+            except ValueError:
+                raise SystemExit("--hours precisa ser um número")
+        report_mod.run(to, since=since, hours=hours)
         return
 
     if cmd == "rescore":

@@ -9,6 +9,8 @@ Group=upstat
 WorkingDirectory=/opt/upstat-outreach/python
 # Mesmo cache de browser do serviço web; necessário pro scrape do pipeline.
 Environment=PLAYWRIGHT_BROWSERS_PATH=/opt/upstat-outreach/.playwright
+# Email que recebe o relatório do run (vazio/removido = não envia relatório):
+Environment=REPORT_TO=dev.yagofontanez@gmail.com
 # Ajuste o teto/dia e a lista de clientes aqui se quiser:
 #Environment=PIPELINE_LIMIT=20
 #Environment=PIPELINE_CLIENTS=upstat martinsadviser
