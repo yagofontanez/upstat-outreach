@@ -1,0 +1,12 @@
+[Unit]
+Description=Dispara o pipeline de outreach 1x/dia em dia útil
+
+[Timer]
+# 13:30 UTC ≈ 10:30 BRT (horário comercial). Ajuste ao seu fuso/janela de envio.
+# A VPS normalmente roda em UTC — confira com `timedatectl`.
+OnCalendar=Mon..Fri 13:30
+# Se a VPS estava desligada na hora marcada, roda assim que voltar.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

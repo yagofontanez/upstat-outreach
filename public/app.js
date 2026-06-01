@@ -16,6 +16,32 @@
     });
   }
 
+  // Toggle do envio automático (cron) no dashboard.
+  const pipelineToggle = document.getElementById("pipeline-toggle");
+  if (pipelineToggle) {
+    const label = document.getElementById("pipeline-toggle-label");
+    pipelineToggle.addEventListener("change", async () => {
+      const enabled = pipelineToggle.checked;
+      pipelineToggle.disabled = true;
+      try {
+        const res = await fetch("/api/pipeline/enabled", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled }),
+        });
+        if (!res.ok) throw new Error("falhou");
+        const data = await res.json();
+        if (label) label.textContent = data.enabled ? "ligado" : "desligado";
+      } catch (err) {
+        pipelineToggle.checked = !enabled; // reverte o visual se falhar
+        if (label) label.textContent = pipelineToggle.checked ? "ligado" : "desligado";
+        alert("Não consegui salvar o estado do envio automático.");
+      } finally {
+        pipelineToggle.disabled = false;
+      }
+    });
+  }
+
   function escapeHtml(s) {
     return String(s).replace(
       /[&<>"']/g,

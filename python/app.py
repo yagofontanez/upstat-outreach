@@ -39,6 +39,7 @@ from mailtemplate import (
 )
 from paths import PUBLIC_DIR, TEMPLATES_DIR
 from personalize import personalize_leads
+from pipeline import is_enabled as pipeline_is_enabled, set_enabled as pipeline_set_enabled
 from scoring import apply_score, score_label
 from scraper import scrape, scrape_cities
 from sender import followup_candidates, send as send_emails, send_followups
@@ -228,7 +229,23 @@ def dashboard(request: Request):
             and not l.get("personalizedHook")
         ),
     }
-    return render(request, "dashboard.html", stats=stats, active="")
+    return render(
+        request,
+        "dashboard.html",
+        stats=stats,
+        pipeline_enabled=pipeline_is_enabled(client["id"]),
+        active="",
+    )
+
+
+@app.post("/api/pipeline/enabled")
+async def api_pipeline_enabled(request: Request):
+    """Liga/desliga o ciclo automático (cron) pro cliente ativo."""
+    client = _require_client(request)
+    body = await request.json()
+    enabled = bool(body.get("enabled"))
+    pipeline_set_enabled(client["id"], enabled)
+    return JSONResponse({"ok": True, "enabled": enabled})
 
 
 @app.get("/scrape")

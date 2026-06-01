@@ -123,7 +123,66 @@ Copie o **signing secret** (`whsec_...`) pra `RESEND_WEBHOOK_SECRET` no `.env` e
 sudo systemctl restart upstat-outreach
 ```
 
-## 9. Atualizar (deploy de nova versão)
+## 9. Pipeline automático (sem humano no loop)
+
+O comando `pipeline` roda o ciclo completo pra cada cliente, **dispensando a
+aprovação manual** em `/review`:
+
+1. **reabastece** — se o estoque vendável estiver abaixo do alvo (default `2× limite`),
+   scrapa o próximo preset do cliente (rotaciona entre os presets a cada execução);
+2. **personaliza** — gera o hook via Groq pros pendentes que ainda não têm (com teto);
+3. **auto-aprova** — marca `pending → approved` só quem passa nas travas de qualidade:
+   email válido, **não** suprimido (bounce/unsub/complaint) e **com** hook personalizado;
+4. **envia o primeiro email** — respeita o teto diário (`--limit`, default **20/cliente**
+   — conservador pra preservar a reputação do remetente).
+
+O **follow-up fica de fora** do ciclo automático (o cron cuida só do primeiro contato).
+Pra incluí-lo, passe `--followup` no comando, ou agende o `followup` à parte.
+
+### Liga/desliga pela web (default: DESLIGADO)
+
+O ciclo só roda pra um cliente se o **envio automático** estiver **ligado** no painel
+(toggle no dashboard `/`, seção *02 ▸ automation*). A flag fica em `settings`
+(`pipeline_enabled`, por cliente) e **nasce desligada** — então mesmo com o timer
+ativo, nada é enviado até você ligar na web. Pra desligar tudo na hora, é só virar
+o toggle (o timer continua disparando, mas o pipeline sai sem fazer nada).
+
+Teste manual primeiro (1 cliente, sem scrape, teto baixo). Como a flag nasce
+desligada, use `--force` pra rodar ignorando o toggle:
+
+```bash
+cd /opt/upstat-outreach/python
+sudo -u upstat PLAYWRIGHT_BROWSERS_PATH=/opt/upstat-outreach/.playwright \
+  .venv/bin/python cli.py --client upstat pipeline --limit 3 --no-scrape --force
+```
+
+Agende com **systemd timer** (recomendado — registra logs no journal):
+
+```bash
+sudo chmod +x /opt/upstat-outreach/deploy/pipeline.sh
+sudo cp /opt/upstat-outreach/deploy/upstat-outreach-pipeline.service /etc/systemd/system/
+sudo cp /opt/upstat-outreach/deploy/upstat-outreach-pipeline.timer   /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now upstat-outreach-pipeline.timer
+
+# confira o horário do próximo disparo (a VPS costuma estar em UTC):
+systemctl list-timers upstat-outreach-pipeline.timer
+# rode na mão uma vez, sem esperar o horário:
+sudo systemctl start upstat-outreach-pipeline.service
+journalctl -u upstat-outreach-pipeline.service -f
+```
+
+Ajustes ficam no `.service` (`PIPELINE_LIMIT`, `PIPELINE_CLIENTS`) e no `.timer`
+(`OnCalendar` — hoje `Mon..Fri 13:30` UTC ≈ 10:30 BRT). Os logs detalhados de cada
+run ficam também em `/opt/upstat-outreach/logs/pipeline-*.log` (mantém os últimos 30).
+
+> Alternativa via cron (sem journal):
+> ```bash
+> sudo crontab -u upstat -e
+> 30 13 * * 1-5 /opt/upstat-outreach/deploy/pipeline.sh
+> ```
+
+## 10. Atualizar (deploy de nova versão)
 
 ```bash
 cd /opt/upstat-outreach
@@ -135,8 +194,9 @@ sudo systemctl restart upstat-outreach
 ## Logs e troubleshooting
 
 ```bash
-journalctl -u upstat-outreach -f      # logs do app
-journalctl -u caddy -f                # logs do proxy/TLS
+journalctl -u upstat-outreach -f              # logs do app
+journalctl -u upstat-outreach-pipeline -f     # logs do pipeline automático
+journalctl -u caddy -f                        # logs do proxy/TLS
 ```
 
 - **502 no navegador**: o serviço caiu — veja `journalctl -u upstat-outreach`.

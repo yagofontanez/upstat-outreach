@@ -61,6 +61,17 @@ Comandos:
   followup [--limit N]
       Dispara o follow-up pros leads enviados sem resposta após o prazo.
 
+  auto-approve [--limit N] [--min-score N] [--allow-no-hook]
+      Aprova automaticamente os leads pendentes que passam nos filtros de
+      qualidade (email válido, não suprimido, com hook). Substitui o `review`.
+
+  pipeline [--limit N] [--no-scrape] [--min-score N] [--stock N] [--followup] [--force]
+      Ciclo sem humano no loop: reabastece (scrape) se o estoque estiver baixo,
+      personaliza, auto-aprova e envia o PRIMEIRO email (teto --limit, default 20).
+      É o comando agendado no cron/systemd timer. Só roda se o envio automático
+      estiver LIGADO no painel pra esse cliente (use --force pra ignorar a flag).
+      O follow-up fica de fora por padrão — use --followup pra incluí-lo.
+
   rescore
       Recalcula o pain score dos leads que já têm scan.
 
@@ -318,6 +329,64 @@ def main():
                 raise SystemExit("--limit precisa de um número > 0")
             opts["limit"] = n
         send_followups(client, **opts)
+        return
+
+    if cmd == "auto-approve":
+        from auto_approve import auto_approve as _auto_approve
+
+        opts = {"require_hook": "--allow-no-hook" not in rest}
+        limit = _pop_flag_value(rest, "--limit")
+        if limit is not None:
+            try:
+                n = int(limit)
+            except ValueError:
+                raise SystemExit("--limit precisa de um número > 0")
+            if n <= 0:
+                raise SystemExit("--limit precisa de um número > 0")
+            opts["limit"] = n
+        min_score = _pop_flag_value(rest, "--min-score")
+        if min_score is not None:
+            try:
+                opts["min_score"] = int(min_score)
+            except ValueError:
+                raise SystemExit("--min-score precisa ser um número")
+        leads = load(client["id"])
+        approved = _auto_approve(client, leads, on_progress=lambda e: None, **opts)
+        if approved:
+            save(client["id"], leads)
+        print(f"[{client['name']}] auto-aprovados: {len(approved)}.")
+        return
+
+    if cmd == "pipeline":
+        import pipeline as pipeline_mod
+
+        opts = {
+            "do_scrape": "--no-scrape" not in rest,
+            "do_followup": "--followup" in rest,
+            "force": "--force" in rest,
+        }
+        limit = _pop_flag_value(rest, "--limit")
+        if limit is not None:
+            try:
+                n = int(limit)
+            except ValueError:
+                raise SystemExit("--limit precisa de um número > 0")
+            if n <= 0:
+                raise SystemExit("--limit precisa de um número > 0")
+            opts["limit"] = n
+        stock = _pop_flag_value(rest, "--stock")
+        if stock is not None:
+            try:
+                opts["stock_target"] = int(stock)
+            except ValueError:
+                raise SystemExit("--stock precisa ser um número")
+        min_score = _pop_flag_value(rest, "--min-score")
+        if min_score is not None:
+            try:
+                opts["min_score"] = int(min_score)
+            except ValueError:
+                raise SystemExit("--min-score precisa ser um número")
+        pipeline_mod.run(client, **opts)
         return
 
     if cmd == "rescore":

@@ -31,7 +31,27 @@
 
 <section class="section">
   <div class="section-head">
-    <span class="num">02 ▸ actions</span>
+    <span class="num">02 ▸ automation</span>
+    <h2>daily auto-send (cron)</h2>
+  </div>
+  <div class="row bare" style="align-items:center;justify-content:space-between;">
+    <div class="body">
+      <h3>envio automático — {{ active_client.name }}</h3>
+      <p>quando ligado, o cron diário scrapa, personaliza, auto-aprova e dispara o
+         1º email sozinho (sem login/aprovação). desligado = não envia nada.
+         configurado por cliente.</p>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="pipeline-toggle" {% if pipeline_enabled %}checked{% endif %}>
+      <span class="rail"></span>
+      <span class="label-text" id="pipeline-toggle-label">{{ 'ligado' if pipeline_enabled else 'desligado' }}</span>
+    </label>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <span class="num">03 ▸ actions</span>
     <h2>where to go next</h2>
   </div>
 
